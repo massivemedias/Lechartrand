@@ -125,7 +125,9 @@ const isValidMeld = (cards) => {
   const nonFrimes = cards.filter(c => !c.isFrime)
   if (nonFrimes.length === 0) return false
   const values = nonFrimes.map(c => c.value), suits = nonFrimes.map(c => c.suit)
-  if (new Set(values).size === 1) return new Set(suits).size === suits.length && cards.length <= 4
+  // Brelan: même valeur, pas de limite de cartes
+  if (new Set(values).size === 1) return true
+  // Suite: même couleur, cartes consécutives
   if (new Set(suits).size === 1) {
     const indices = nonFrimes.map(c => getValueIndex(c.value)).sort((a, b) => a - b)
     return indices[indices.length - 1] - indices[0] + 1 <= cards.length && new Set(indices).size === indices.length
