@@ -7,7 +7,8 @@ const GlobalStyles = () => (
     @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap');
     
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body, #root { height: 100%; overflow: hidden; }
+    html, body, #root { height: 100%; min-height: 100%; }
+    body { overflow-x: hidden; }
     
     @keyframes cardDeal {
       0% { transform: translateY(-100vh) rotate(-180deg); opacity: 0; }
@@ -140,12 +141,12 @@ const Card = ({ card, selected, onClick, faceDown, small, mini, disabled, style,
   const isRed = card?.suit === '♥' || card?.suit === '♦' || card?.suit === 'R'
   const isFrime = card?.isFrime
   
-  // Balanced responsive sizes
+  // Mobile-first responsive sizes
   const sizes = mini 
-    ? { w: 32, h: 48, font: 12, corner: 8, frime: 5 }
+    ? { w: 28, h: 42, font: 10, corner: 7, frime: 4 }
     : small 
-      ? { w: 50, h: 75, font: 18, corner: 10, frime: 6 }
-      : { w: 70, h: 105, font: 26, corner: 12, frime: 7 }
+      ? { w: 42, h: 63, font: 15, corner: 9, frime: 5 }
+      : { w: 56, h: 84, font: 20, corner: 11, frime: 6 }
   
   const baseStyle = {
     width: sizes.w,
@@ -271,19 +272,19 @@ const DiscardPile = ({ cards, canClick, onClickCard }) => {
       ref={scrollRef}
       style={{ 
         display: 'flex', 
-        gap: 6, 
+        gap: 4, 
         overflowX: 'auto',
         overflowY: 'hidden',
-        padding: '10px 12px',
+        padding: '8px 10px',
         background: 'rgba(139,92,246,0.1)',
-        borderRadius: 10,
+        borderRadius: 8,
         border: '1px solid rgba(139,92,246,0.3)',
-        minHeight: 70,
+        minHeight: 60,
         alignItems: 'center'
       }}
     >
       {cards.length === 0 ? (
-        <span style={{ color: '#666', fontSize: 14, fontStyle: 'italic' }}>Vide</span>
+        <span style={{ color: '#666', fontSize: 12, fontStyle: 'italic' }}>Vide</span>
       ) : (
         cards.map((card, i) => (
           <Card 
@@ -569,7 +570,7 @@ export default function App() {
           
           <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 16, padding: 20, border: '1px solid rgba(255,255,255,0.08)' }}>
             <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 10 }}>
-              👥 Multijoueur 
+              Multijoueur 
               <span style={{ fontSize: 9, padding: '3px 8px', borderRadius: 6, background: 'rgba(0,255,136,0.15)', color: '#00ff88' }}>ONLINE</span>
             </div>
             <button onClick={createRoom} className="btn-primary" style={{ width: '100%', padding: '12px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg, #00ff88, #00d4ff)', color: '#000', fontSize: 14, fontWeight: 600, cursor: 'pointer', marginBottom: 10 }}>Créer une partie</button>
@@ -656,38 +657,39 @@ export default function App() {
     <>
       <GlobalStyles />
       <div style={{ 
-        height: '100vh', 
+        minHeight: '100vh', 
         background: 'linear-gradient(180deg, #0a0a0f 0%, #12122a 50%, #0a0a0f 100%)', 
         fontFamily: 'Space Grotesk, system-ui', 
         color: '#fff', 
         display: 'flex', 
-        flexDirection: 'column',
-        overflow: 'hidden'
+        flexDirection: 'column'
       }}>
-        {/* Header */}
+        {/* Header - compact on mobile */}
         <div style={{ 
-          padding: '16px 24px', 
+          padding: '10px 12px', 
           display: 'flex', 
           justifyContent: 'space-between', 
           alignItems: 'center',
           background: 'rgba(0,0,0,0.3)',
-          borderBottom: '1px solid rgba(255,255,255,0.05)'
+          borderBottom: '1px solid rgba(255,255,255,0.05)',
+          flexWrap: 'wrap',
+          gap: 8
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            <h1 style={{ fontSize: 22, background: 'linear-gradient(135deg, #00ff88, #00d4ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', margin: 0, fontWeight: 700 }}>LE CHARTRAND</h1>
-            {roomCode && <span style={{ fontSize: 14, color: '#888', background: 'rgba(139,92,246,0.2)', padding: '6px 12px', borderRadius: 6 }}>{roomCode}</span>}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <h1 style={{ fontSize: 16, background: 'linear-gradient(135deg, #00ff88, #00d4ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', margin: 0, fontWeight: 700 }}>LE CHARTRAND</h1>
+            {roomCode && <span style={{ fontSize: 12, color: '#888', background: 'rgba(139,92,246,0.2)', padding: '4px 8px', borderRadius: 4 }}>{roomCode}</span>}
           </div>
-          <div style={{ display: 'flex', gap: 12 }}>
+          <div style={{ display: 'flex', gap: 8 }}>
             {players.map((p, i) => (
               <div key={i} style={{ 
-                padding: '10px 18px', 
+                padding: '6px 10px', 
                 background: currentPlayer === i ? 'rgba(0,255,136,0.15)' : 'rgba(255,255,255,0.03)', 
-                borderRadius: 10, 
+                borderRadius: 8, 
                 border: currentPlayer === i ? '2px solid rgba(0,255,136,0.4)' : '1px solid transparent',
                 transition: 'all 0.3s ease'
               }}>
-                <div style={{ fontSize: 14, color: currentPlayer === i ? '#00ff88' : '#888', fontWeight: 500 }}>{p.name}</div>
-                <div style={{ fontSize: 20, fontWeight: 700 }}>{scores[i]}p</div>
+                <div style={{ fontSize: 11, color: currentPlayer === i ? '#00ff88' : '#888', fontWeight: 500 }}>{p.name}</div>
+                <div style={{ fontSize: 16, fontWeight: 700 }}>{scores[i]}p</div>
               </div>
             ))}
           </div>
@@ -696,10 +698,10 @@ export default function App() {
         {/* Status bar */}
         <div className={lastAction === 'error' ? 'shake' : ''} style={{ 
           textAlign: 'center', 
-          padding: '14px 24px', 
+          padding: '10px 12px', 
           background: isMyTurn ? 'rgba(0,255,136,0.1)' : 'rgba(139,92,246,0.1)', 
-          borderBottom: isMyTurn ? '3px solid rgba(0,255,136,0.4)' : '1px solid rgba(139,92,246,0.2)',
-          fontSize: 18,
+          borderBottom: isMyTurn ? '2px solid rgba(0,255,136,0.4)' : '1px solid rgba(139,92,246,0.2)',
+          fontSize: 15,
           fontWeight: 600,
           color: isMyTurn ? '#00ff88' : '#a78bfa'
         }}>
@@ -707,10 +709,10 @@ export default function App() {
         </div>
 
         {/* Main game area */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '12px 16px', gap: 12, overflow: 'auto' }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '10px', gap: 10, overflowY: 'auto', overflowX: 'hidden' }}>
           
-          {/* Opponents row */}
-          <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
+          {/* Opponents row - compact */}
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
             {otherPlayers.map((p) => { 
               const pIdx = players.indexOf(p)
               const pMelds = melds.filter(m => m.owner === pIdx)
@@ -718,37 +720,37 @@ export default function App() {
               return (
                 <div key={p.id} style={{ 
                   background: isActive ? 'rgba(0,255,136,0.08)' : 'rgba(255,255,255,0.02)', 
-                  borderRadius: 12, 
-                  padding: 14, 
+                  borderRadius: 10, 
+                  padding: 10, 
                   border: isActive ? '2px solid rgba(0,255,136,0.4)' : '1px solid rgba(255,255,255,0.05)',
-                  minWidth: 160,
+                  minWidth: 130,
                   transition: 'all 0.3s ease'
                 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10, alignItems: 'center' }}>
-                    <span style={{ fontSize: 15, fontWeight: 600, color: isActive ? '#00ff88' : '#fff' }}>{p.name}</span>
-                    <span style={{ fontSize: 18, color: isActive ? '#00ff88' : '#fff', background: isActive ? 'rgba(0,255,136,0.2)' : 'rgba(255,255,255,0.1)', padding: '6px 14px', borderRadius: 8, fontWeight: 700 }}>{p.hand?.length || 0}</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, alignItems: 'center' }}>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: isActive ? '#00ff88' : '#fff' }}>{p.name}</span>
+                    <span style={{ fontSize: 16, color: isActive ? '#00ff88' : '#fff', background: isActive ? 'rgba(0,255,136,0.2)' : 'rgba(255,255,255,0.1)', padding: '4px 10px', borderRadius: 6, fontWeight: 700 }}>{p.hand?.length || 0}</span>
                   </div>
                   <div style={{ display: 'flex' }}>
-                    {(p.hand || []).slice(0, 4).map((_, i) => <Card key={i} faceDown mini style={{ marginLeft: i > 0 ? -16 : 0 }} />)}
-                    {(p.hand?.length || 0) > 4 && <div style={{ marginLeft: -10, background: '#2d2d44', borderRadius: 4, padding: '0 6px', fontSize: 11, color: '#888', display: 'flex', alignItems: 'center', fontWeight: 600 }}>+{p.hand.length - 4}</div>}
+                    {(p.hand || []).slice(0, 3).map((_, i) => <Card key={i} faceDown mini style={{ marginLeft: i > 0 ? -12 : 0 }} />)}
+                    {(p.hand?.length || 0) > 3 && <div style={{ marginLeft: -8, background: '#2d2d44', borderRadius: 4, padding: '0 5px', fontSize: 10, color: '#888', display: 'flex', alignItems: 'center', fontWeight: 600 }}>+{p.hand.length - 3}</div>}
                   </div>
                   {pMelds.length > 0 && (
-                    <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 10, marginTop: 8 }}>
+                    <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 6, marginTop: 6 }}>
                       {pMelds.map((m, mi) => (
                         <div 
                           key={mi} 
                           style={{ 
                             display: 'flex', 
-                            marginBottom: 4, 
-                            padding: 4,
-                            borderRadius: 6,
+                            marginBottom: 3, 
+                            padding: 3,
+                            borderRadius: 4,
                             cursor: selectedCards.length === 1 && canAddToMeld(m.cards, selectedCards[0]) ? 'pointer' : 'default', 
                             border: selectedCards.length === 1 && canAddToMeld(m.cards, selectedCards[0]) ? '2px dashed #00ff88' : '1px solid rgba(255,255,255,0.05)',
                             background: 'rgba(0,0,0,0.2)'
                           }} 
                           onClick={() => selectedCards.length === 1 && canAddToMeld(m.cards, selectedCards[0]) && addToMeld(melds.indexOf(m))}
                         >
-                          {m.cards.map((c, ci) => <Card key={c.id} card={c} mini style={{ marginLeft: ci > 0 ? -14 : 0 }} disabled />)}
+                          {m.cards.map((c, ci) => <Card key={c.id} card={c} mini style={{ marginLeft: ci > 0 ? -10 : 0 }} disabled />)}
                         </div>
                       ))}
                     </div>
@@ -759,23 +761,23 @@ export default function App() {
           </div>
 
           {/* Center: Deck & Discard */}
-          <div style={{ display: 'flex', gap: 24, justifyContent: 'center', alignItems: 'center', padding: '8px 0' }}>
+          <div style={{ display: 'flex', gap: 16, justifyContent: 'center', alignItems: 'flex-start', padding: '6px 0' }}>
             {/* Deck */}
             <div 
               onClick={canClickDiscard ? drawFromDeck : undefined} 
               style={{ textAlign: 'center', cursor: canClickDiscard ? 'pointer' : 'default' }}
             >
-              <div style={{ fontSize: 13, color: '#888', marginBottom: 6, fontWeight: 600 }}>Pioche</div>
+              <div style={{ fontSize: 11, color: '#888', marginBottom: 4, fontWeight: 600 }}>Pioche</div>
               <div className={canClickDiscard ? 'glow' : ''} style={{ position: 'relative' }}>
                 <Card faceDown small />
-                {canClickDiscard && <div style={{ position: 'absolute', inset: -3, borderRadius: 8, border: '2px solid rgba(0,255,136,0.5)' }} />}
+                {canClickDiscard && <div style={{ position: 'absolute', inset: -2, borderRadius: 6, border: '2px solid rgba(0,255,136,0.5)' }} />}
               </div>
-              <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>{deck.length}</div>
+              <div style={{ fontSize: 11, color: '#666', marginTop: 3 }}>{deck.length}</div>
             </div>
 
             {/* Discard */}
-            <div style={{ flex: 1, maxWidth: 350 }}>
-              <div style={{ fontSize: 13, color: '#888', marginBottom: 6, fontWeight: 600 }}>Défausse ({discard.length})</div>
+            <div style={{ flex: 1, maxWidth: 280 }}>
+              <div style={{ fontSize: 11, color: '#888', marginBottom: 4, fontWeight: 600 }}>Défausse ({discard.length})</div>
               <DiscardPile cards={discard} canClick={canClickDiscard} onClickCard={drawFromDiscard} />
             </div>
           </div>
@@ -783,8 +785,8 @@ export default function App() {
           {/* My melds */}
           {myMelds.length > 0 && (
             <div>
-              <div style={{ fontSize: 13, color: '#888', marginBottom: 8, fontWeight: 600, textAlign: 'center' }}>Tes combinaisons</div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, justifyContent: 'center' }}>
+              <div style={{ fontSize: 11, color: '#888', marginBottom: 6, fontWeight: 600, textAlign: 'center' }}>Tes combinaisons</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'center' }}>
                 {myMelds.map((m, mi) => (
                   <div 
                     key={mi} 
@@ -793,15 +795,15 @@ export default function App() {
                       display: 'flex', 
                       alignItems: 'center', 
                       background: 'rgba(0,255,136,0.08)', 
-                      borderRadius: 8, 
-                      padding: 6, 
+                      borderRadius: 6, 
+                      padding: 4, 
                       border: selectedCards.length === 1 && canAddToMeld(m.cards, selectedCards[0]) ? '2px dashed #00ff88' : '1px solid rgba(0,255,136,0.2)',
                       cursor: selectedCards.length === 1 && canAddToMeld(m.cards, selectedCards[0]) ? 'pointer' : 'default' 
                     }} 
                     onClick={() => selectedCards.length === 1 && canAddToMeld(m.cards, selectedCards[0]) && addToMeld(melds.indexOf(m))}
                   >
-                    {m.cards.map((c, ci) => <Card key={c.id} card={c} mini style={{ marginLeft: ci > 0 ? -14 : 0 }} disabled />)}
-                    <div style={{ marginLeft: 8, fontSize: 14, color: '#00ff88', fontWeight: 700 }}>{m.cards.reduce((s, c) => s + getCardPoints(c), 0)}p</div>
+                    {m.cards.map((c, ci) => <Card key={c.id} card={c} mini style={{ marginLeft: ci > 0 ? -10 : 0 }} disabled />)}
+                    <div style={{ marginLeft: 6, fontSize: 12, color: '#00ff88', fontWeight: 700 }}>{m.cards.reduce((s, c) => s + getCardPoints(c), 0)}p</div>
                   </div>
                 ))}
               </div>
@@ -812,39 +814,39 @@ export default function App() {
         {/* Player's hand area */}
         <div style={{ 
           background: 'rgba(0,0,0,0.4)', 
-          borderTop: isMyTurn ? '3px solid rgba(0,255,136,0.5)' : '1px solid rgba(255,255,255,0.08)',
-          padding: '14px 16px 18px'
+          borderTop: isMyTurn ? '2px solid rgba(0,255,136,0.5)' : '1px solid rgba(255,255,255,0.08)',
+          padding: '10px 10px 14px'
         }}>
           {/* Hand header */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 10 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <span style={{ color: '#aaa', fontSize: 16, fontWeight: 600 }}>Ta main ({players[myPlayerIndex]?.hand?.length || 0})</span>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, flexWrap: 'wrap', gap: 6 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ color: '#aaa', fontSize: 13, fontWeight: 600 }}>Ta main ({players[myPlayerIndex]?.hand?.length || 0})</span>
               {selectedCards.length > 0 && (
                 <span style={{ 
                   color: validSelection ? '#00ff88' : '#a78bfa', 
-                  fontSize: 14, 
+                  fontSize: 12, 
                   background: validSelection ? 'rgba(0,255,136,0.15)' : 'rgba(139,92,246,0.15)',
-                  padding: '6px 12px',
-                  borderRadius: 6,
+                  padding: '4px 8px',
+                  borderRadius: 4,
                   fontWeight: 600
                 }}>
                   {selectedCards.length} sél. {validSelection && '✓'}
                 </span>
               )}
             </div>
-            <div style={{ display: 'flex', gap: 6 }}>
+            <div style={{ display: 'flex', gap: 4 }}>
               {['none', 'value', 'suit'].map(mode => (
                 <button 
                   key={mode} 
                   onClick={() => setSortMode(mode)} 
                   className="btn-primary"
                   style={{ 
-                    padding: '8px 14px', 
-                    borderRadius: 6, 
+                    padding: '5px 10px', 
+                    borderRadius: 4, 
                     border: 'none', 
                     background: sortMode === mode ? 'rgba(0,255,136,0.2)' : 'rgba(255,255,255,0.05)', 
                     color: sortMode === mode ? '#00ff88' : '#888', 
-                    fontSize: 13, 
+                    fontSize: 11, 
                     cursor: 'pointer',
                     fontWeight: 500
                   }}
@@ -858,10 +860,10 @@ export default function App() {
           {/* Cards */}
           <div style={{ 
             display: 'flex', 
-            gap: 8, 
+            gap: 4, 
             justifyContent: 'center', 
             flexWrap: 'wrap',
-            marginBottom: isMyTurn && turnPhase === 'play' ? 16 : 0
+            marginBottom: isMyTurn && turnPhase === 'play' ? 10 : 0
           }}>
             {sortedHand().map((card, i) => (
               <Card 
@@ -878,19 +880,19 @@ export default function App() {
 
           {/* Action buttons */}
           {isMyTurn && turnPhase === 'play' && (
-            <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
               <button 
                 onClick={createMeld} 
                 disabled={!validSelection}
                 className="btn-primary"
                 style={{ 
-                  padding: '12px 28px', 
-                  borderRadius: 10, 
+                  padding: '10px 20px', 
+                  borderRadius: 8, 
                   border: 'none', 
                   background: validSelection ? 'linear-gradient(135deg, #00ff88, #00d4ff)' : 'rgba(255,255,255,0.08)', 
                   color: validSelection ? '#000' : '#555', 
                   fontWeight: 700, 
-                  fontSize: 16, 
+                  fontSize: 13, 
                   cursor: validSelection ? 'pointer' : 'not-allowed',
                   transition: 'all 0.2s ease'
                 }}
@@ -902,13 +904,13 @@ export default function App() {
                 disabled={selectedCards.length !== 1}
                 className="btn-primary"
                 style={{ 
-                  padding: '12px 28px', 
-                  borderRadius: 10, 
+                  padding: '10px 20px', 
+                  borderRadius: 8, 
                   border: 'none', 
                   background: selectedCards.length === 1 ? 'linear-gradient(135deg, #ff4757, #ff6b81)' : 'rgba(255,255,255,0.08)', 
                   color: selectedCards.length === 1 ? '#fff' : '#555', 
                   fontWeight: 700, 
-                  fontSize: 16, 
+                  fontSize: 13, 
                   cursor: selectedCards.length === 1 ? 'pointer' : 'not-allowed'
                 }}
               >
@@ -918,12 +920,12 @@ export default function App() {
                 onClick={() => setSelectedCards([])} 
                 className="btn-primary"
                 style={{ 
-                  padding: '12px 24px', 
-                  borderRadius: 10, 
+                  padding: '10px 16px', 
+                  borderRadius: 8, 
                   border: '1px solid rgba(255,255,255,0.2)', 
                   background: 'transparent', 
                   color: '#888', 
-                  fontSize: 16, 
+                  fontSize: 13, 
                   cursor: 'pointer' 
                 }}
               >
