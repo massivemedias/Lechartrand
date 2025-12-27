@@ -209,27 +209,30 @@ const Card = ({ card, selected, onClick, faceDown, small, mini, disabled, style,
       {card.value === 'JOKER' ? (
         <div style={{ fontSize: sizes.font, color: card.suit === 'R' ? '#ef4444' : '#666', fontWeight: 'bold' }}>★</div>
       ) : (
-        <>
+        <div style={{ 
+          position: 'absolute', 
+          top: 2, 
+          left: 3, 
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          lineHeight: 1
+        }}>
           <div style={{ 
-            position: 'absolute', 
-            top: 2, 
-            left: 3, 
             fontSize: sizes.corner, 
             fontWeight: 'bold', 
-            color: isFrime ? '#a78bfa' : (isRed ? '#dc2626' : '#1f2937'),
-            lineHeight: 1
+            color: isFrime ? '#a78bfa' : (isRed ? '#dc2626' : '#1f2937')
           }}>
             {card.value}
           </div>
           <div style={{ 
-            fontSize: sizes.font, 
+            fontSize: sizes.corner - 2, 
             color: isFrime ? '#a78bfa' : (isRed ? '#dc2626' : '#333'),
-            fontWeight: 'bold',
-            marginTop: 4
+            marginTop: -1
           }}>
             {card.suit}
           </div>
-        </>
+        </div>
       )}
   </div>
   )
@@ -270,7 +273,7 @@ const DiscardPile = ({ cards, canClick, onClickCard }) => {
             onClick={() => onClickCard(i)}
             disabled={!canClick}
             style={{ 
-              marginLeft: i > 0 ? -26 : 0,
+              marginLeft: i > 0 ? -20 : 0,
               zIndex: i,
               opacity: canClick ? 1 : 0.8,
               border: canClick ? '2px solid rgba(0,255,136,0.5)' : undefined
@@ -729,7 +732,7 @@ export default function App() {
                           }} 
                           onClick={() => selectedCards.length === 1 && canAddToMeld(m.cards, selectedCards[0]) && addToMeld(melds.indexOf(m))}
                         >
-                          {m.cards.map((c, ci) => <Card key={c.id} card={c} mini style={{ marginLeft: ci > 0 ? -18 : 0, zIndex: ci }} disabled />)}
+                          {m.cards.map((c, ci) => <Card key={c.id} card={c} mini style={{ marginLeft: ci > 0 ? -14 : 0, zIndex: ci }} disabled />)}
                         </div>
                       ))}
                     </div>
@@ -789,7 +792,7 @@ export default function App() {
                     }} 
                     onClick={() => selectedCards.length === 1 && canAddToMeld(m.cards, selectedCards[0]) && addToMeld(melds.indexOf(m))}
                   >
-                    {m.cards.map((c, ci) => <Card key={c.id} card={c} small style={{ marginLeft: ci > 0 ? -26 : 0, zIndex: ci }} disabled />)}
+                    {m.cards.map((c, ci) => <Card key={c.id} card={c} small style={{ marginLeft: ci > 0 ? -20 : 0, zIndex: ci }} disabled />)}
                     <div style={{ marginLeft: 6, fontSize: 12, color: '#00ff88', fontWeight: 700 }}>{m.cards.reduce((s, c) => s + getCardPoints(c), 0)}p</div>
                   </div>
                 ))}
