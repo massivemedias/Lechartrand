@@ -135,7 +135,13 @@ const isValidMeld = (cards) => {
   return false
 }
 
-const canAddToMeld = (meld, card) => isValidMeld([...meld, card])
+const canAddToMeld = (meldCards, card, allMelds = [], meldIdx = -1) => {
+  // Get all cards linked to this meld
+  const linkedCards = allMelds
+    .filter(m => m.linkedTo === meldIdx)
+    .flatMap(m => m.cards)
+  return isValidMeld([...meldCards, ...linkedCards, card])
+}
 const generateRoomCode = () => String(Math.floor(Math.random() * 900) + 100) // 100-999
 
 // ============ CARD COMPONENTS ============
@@ -413,9 +419,20 @@ export default function App() {
   }
 
   const addToMeld = async (meldIdx) => { 
-    if (selectedCards.length !== 1) return; const card = selectedCards[0]; const meld = melds[meldIdx]; if (!canAddToMeld(meld.cards, card)) return
+    if (selectedCards.length !== 1) return; const card = selectedCards[0]; const meld = melds[meldIdx]; if (!canAddToMeld(meld.cards, card, melds, meldIdx)) return
     setLastAction('addMeld')
-    const newMelds = [...melds]; newMelds[meldIdx] = { ...meld, cards: [...meld.cards, card] }; const newPlayers = [...players]; newPlayers[myPlayerIndex] = { ...newPlayers[myPlayerIndex], hand: newPlayers[myPlayerIndex].hand.filter(c => c.id !== card.id) }; const newLog = [...actionLog, { player: players[myPlayerIndex].name, action: '+' + card.value, icon: '+' }]; setMelds(newMelds); setPlayers(newPlayers); setSelectedCards([]); setActionLog(newLog); if (newPlayers[myPlayerIndex].hand.length === 0) await endRound(newPlayers, newMelds, newLog); else if (gameMode === 'online') await syncToFirebase({ melds: newMelds, players: newPlayers, actionLog: newLog }) 
+    const newMelds = [...melds]
+    
+    if (meld.owner === myPlayerIndex) {
+      // My own meld - add card to it
+      newMelds[meldIdx] = { ...meld, cards: [...meld.cards, card] }
+    } else {
+      // Someone else's meld - create MY OWN meld entry for MY points
+      // The card links to the other meld for validation purposes
+      newMelds.push({ owner: myPlayerIndex, cards: [card], linkedTo: meldIdx })
+    }
+    
+    const newPlayers = [...players]; newPlayers[myPlayerIndex] = { ...newPlayers[myPlayerIndex], hand: newPlayers[myPlayerIndex].hand.filter(c => c.id !== card.id) }; const newLog = [...actionLog, { player: players[myPlayerIndex].name, action: '+' + card.value, icon: '+' }]; setMelds(newMelds); setPlayers(newPlayers); setSelectedCards([]); setActionLog(newLog); if (newPlayers[myPlayerIndex].hand.length === 0) await endRound(newPlayers, newMelds, newLog); else if (gameMode === 'online') await syncToFirebase({ melds: newMelds, players: newPlayers, actionLog: newLog }) 
   }
 
   const discardCard = async () => { 
@@ -719,6 +736,13 @@ export default function App() {
   const canClickDiscard = isMyTurn && turnPhase === 'draw'
   const otherPlayers = players.filter((_, i) => i !== myPlayerIndex)
   const validSelection = selectedCards.length >= 3 && isValidMeld(selectedCards)
+  
+  // Helper to check if card can be added to a meld (including linked cards)
+  const canAddCard = (meldIdx, card) => {
+    const meld = melds[meldIdx]
+    if (!meld) return false
+    return canAddToMeld(meld.cards, card, melds, meldIdx)
+  }
 
   return (
     <>
@@ -782,7 +806,7 @@ export default function App() {
           <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
             {otherPlayers.map((p) => { 
               const pIdx = players.indexOf(p)
-              const pMelds = melds.filter(m => m.owner === pIdx)
+              const pMelds = melds.filter(m => m.owner === pIdx && !m.linkedTo)
               const isActive = currentPlayer === pIdx
               return (
                 <div key={p.id} style={{ 
@@ -810,11 +834,11 @@ export default function App() {
                             display: 'flex', 
                             padding: 3,
                             borderRadius: 6,
-                            cursor: selectedCards.length === 1 && canAddToMeld(m.cards, selectedCards[0]) ? 'pointer' : 'default', 
-                            border: selectedCards.length === 1 && canAddToMeld(m.cards, selectedCards[0]) ? '2px dashed #00ff88' : '1px solid rgba(255,255,255,0.05)',
+                            cursor: selectedCards.length === 1 && canAddCard(melds.indexOf(m), selectedCards[0]) ? 'pointer' : 'default', 
+                            border: selectedCards.length === 1 && canAddCard(melds.indexOf(m), selectedCards[0]) ? '2px dashed #00ff88' : '1px solid rgba(255,255,255,0.05)',
                             background: 'rgba(0,0,0,0.2)'
                           }} 
-                          onClick={() => selectedCards.length === 1 && canAddToMeld(m.cards, selectedCards[0]) && addToMeld(melds.indexOf(m))}
+                          onClick={() => selectedCards.length === 1 && canAddCard(melds.indexOf(m), selectedCards[0]) && addToMeld(melds.indexOf(m))}
                         >
                           {m.cards.map((c, ci) => <Card key={c.id} card={c} small style={{ marginLeft: ci > 0 ? -20 : 0, zIndex: ci }} disabled />)}
                         </div>
@@ -871,10 +895,10 @@ export default function App() {
                       background: 'rgba(0,255,136,0.08)', 
                       borderRadius: 8, 
                       padding: '4px 8px 4px 6px', 
-                      border: selectedCards.length === 1 && canAddToMeld(m.cards, selectedCards[0]) ? '2px dashed #00ff88' : '1px solid rgba(0,255,136,0.2)',
-                      cursor: selectedCards.length === 1 && canAddToMeld(m.cards, selectedCards[0]) ? 'pointer' : 'default' 
+                      border: selectedCards.length === 1 && !m.linkedTo && canAddCard(melds.indexOf(m), selectedCards[0]) ? '2px dashed #00ff88' : '1px solid rgba(0,255,136,0.2)',
+                      cursor: selectedCards.length === 1 && !m.linkedTo && canAddCard(melds.indexOf(m), selectedCards[0]) ? 'pointer' : 'default' 
                     }} 
-                    onClick={() => selectedCards.length === 1 && canAddToMeld(m.cards, selectedCards[0]) && addToMeld(melds.indexOf(m))}
+                    onClick={() => selectedCards.length === 1 && !m.linkedTo && canAddCard(melds.indexOf(m), selectedCards[0]) && addToMeld(melds.indexOf(m))}
                   >
                     {m.cards.map((c, ci) => <Card key={c.id} card={c} small style={{ marginLeft: ci > 0 ? -20 : 0, zIndex: ci }} disabled />)}
                     <div style={{ marginLeft: 6, fontSize: 12, color: '#00ff88', fontWeight: 700 }}>{m.cards.reduce((s, c) => s + getCardPoints(c), 0)}p</div>
