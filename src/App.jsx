@@ -424,18 +424,101 @@ export default function App() {
 
   const endRound = async (finalPlayers, finalMelds, newLog) => { const newScores = [...scores]; finalPlayers.forEach((p, i) => { const mPts = finalMelds.filter(m => m.owner === i).reduce((s, m) => s + m.cards.reduce((ss, c) => ss + getCardPoints(c), 0), 0); newScores[i] += mPts - p.hand.reduce((s, c) => s + getCardPoints(c), 0) }); setScores(newScores); const newPhase = newScores.some(s => s >= 500) ? 'gameEnd' : 'roundEnd'; setGamePhase(newPhase); if (gameMode === 'online') await syncToFirebase({ scores: newScores, gamePhase: newPhase, actionLog: newLog }) }
 
+  // AI turn with 3s delays between actions
   useEffect(() => {
     if (gamePhase !== 'playing' || gameMode !== 'solo' || !players[currentPlayer]?.isAI) return
-    const timer = setTimeout(() => {
-      const st = stateRef.current; let newPlayers = JSON.parse(JSON.stringify(st.players)); let newDeck = [...st.deck]; let newDiscard = [...st.discard]; let newMelds = JSON.parse(JSON.stringify(st.melds)); const logs = []; const pName = newPlayers[currentPlayer].name
-      if (newDeck.length > 0) { newPlayers[currentPlayer].hand.push(newDeck.pop()); logs.push({ player: pName, action: 'pioche', icon: '+' }) }
-      let found = true, iter = 0; while (found && iter < 5) { found = false; iter++; const hand = newPlayers[currentPlayer].hand; for (let i = 0; i < hand.length && !found; i++) for (let j = i + 1; j < hand.length && !found; j++) for (let k = j + 1; k < hand.length && !found; k++) { const tryM = [hand[i], hand[j], hand[k]]; if (isValidMeld(tryM)) { newMelds.push({ owner: currentPlayer, cards: tryM }); newPlayers[currentPlayer].hand = hand.filter(c => !tryM.some(m => m.id === c.id)); logs.push({ player: pName, action: 'pose', icon: '*' }); found = true } } }
-      if (newPlayers[currentPlayer].hand.length > 0) { const sorted = [...newPlayers[currentPlayer].hand].sort((a, b) => getCardPoints(b) - getCardPoints(a)); const disc = sorted[0]; newPlayers[currentPlayer].hand = newPlayers[currentPlayer].hand.filter(c => c.id !== disc.id); newDiscard.push(disc); logs.push({ player: pName, action: disc.value + disc.suit, icon: '-' }) }
-      setPlayers(newPlayers); setDeck(newDeck); setDiscard(newDiscard); setMelds(newMelds); setActionLog(prev => [...prev, ...logs])
-      if (newPlayers[currentPlayer].hand.length === 0) { const newScores = [...st.scores]; newPlayers.forEach((p, i) => { const mPts = newMelds.filter(m => m.owner === i).reduce((s, m) => s + m.cards.reduce((ss, c) => ss + getCardPoints(c), 0), 0); newScores[i] += mPts - p.hand.reduce((s, c) => s + getCardPoints(c), 0) }); setScores(newScores); setGamePhase(newScores.some(s => s >= 500) ? 'gameEnd' : 'roundEnd') }
-      else { const next = (currentPlayer + 1) % numPlayers; setCurrentPlayer(next); setTurnPhase('draw'); setMessage(next === 0 ? 'Ton tour - Pioche' : `Tour de ${newPlayers[next].name}...`) }
-    }, 800)
-    return () => clearTimeout(timer)
+    
+    const aiPlayer = players[currentPlayer]
+    const pName = aiPlayer.name
+    let cancelled = false
+    
+    const runAI = async () => {
+      const delay = (ms) => new Promise(r => setTimeout(r, ms))
+      
+      // Step 1: Draw
+      setMessage(`${pName} pioche...`)
+      await delay(2000)
+      if (cancelled) return
+      
+      const st = stateRef.current
+      let newPlayers = JSON.parse(JSON.stringify(st.players))
+      let newDeck = [...st.deck]
+      let newDiscard = [...st.discard]
+      let newMelds = JSON.parse(JSON.stringify(st.melds))
+      
+      if (newDeck.length > 0) {
+        newPlayers[currentPlayer].hand.push(newDeck.pop())
+        setDeck(newDeck)
+        setPlayers(newPlayers)
+        setActionLog(prev => [...prev, { player: pName, action: 'pioche', icon: '+' }])
+      }
+      
+      // Step 2: Try to meld
+      await delay(2000)
+      if (cancelled) return
+      
+      let found = true, iter = 0
+      while (found && iter < 5) {
+        found = false; iter++
+        const hand = newPlayers[currentPlayer].hand
+        for (let i = 0; i < hand.length && !found; i++) {
+          for (let j = i + 1; j < hand.length && !found; j++) {
+            for (let k = j + 1; k < hand.length && !found; k++) {
+              const tryM = [hand[i], hand[j], hand[k]]
+              if (isValidMeld(tryM)) {
+                setMessage(`${pName} pose une combinaison!`)
+                newMelds.push({ owner: currentPlayer, cards: tryM })
+                newPlayers[currentPlayer].hand = hand.filter(c => !tryM.some(m => m.id === c.id))
+                setMelds(newMelds)
+                setPlayers(newPlayers)
+                setActionLog(prev => [...prev, { player: pName, action: 'pose', icon: '*' }])
+                found = true
+                await delay(2000)
+                if (cancelled) return
+              }
+            }
+          }
+        }
+      }
+      
+      // Step 3: Discard
+      if (newPlayers[currentPlayer].hand.length > 0) {
+        setMessage(`${pName} défausse...`)
+        await delay(2000)
+        if (cancelled) return
+        
+        const sorted = [...newPlayers[currentPlayer].hand].sort((a, b) => getCardPoints(b) - getCardPoints(a))
+        const disc = sorted[0]
+        newPlayers[currentPlayer].hand = newPlayers[currentPlayer].hand.filter(c => c.id !== disc.id)
+        newDiscard.push(disc)
+        setDiscard(newDiscard)
+        setPlayers(newPlayers)
+        setActionLog(prev => [...prev, { player: pName, action: disc.value + disc.suit, icon: '-' }])
+      }
+      
+      // End turn
+      await delay(1000)
+      if (cancelled) return
+      
+      if (newPlayers[currentPlayer].hand.length === 0) {
+        const st2 = stateRef.current
+        const newScores = [...st2.scores]
+        newPlayers.forEach((p, i) => {
+          const mPts = newMelds.filter(m => m.owner === i).reduce((s, m) => s + m.cards.reduce((ss, c) => ss + getCardPoints(c), 0), 0)
+          newScores[i] += mPts - p.hand.reduce((s, c) => s + getCardPoints(c), 0)
+        })
+        setScores(newScores)
+        setGamePhase(newScores.some(s => s >= 500) ? 'gameEnd' : 'roundEnd')
+      } else {
+        const next = (currentPlayer + 1) % numPlayers
+        setCurrentPlayer(next)
+        setTurnPhase('draw')
+        setMessage(next === 0 ? 'Ton tour - Pioche' : `Tour de ${newPlayers[next].name}...`)
+      }
+    }
+    
+    runAI()
+    return () => { cancelled = true }
   }, [currentPlayer, gamePhase, gameMode, numPlayers])
 
   const sortedHand = () => { const myPlayer = players[myPlayerIndex]; if (!myPlayer) return []; const hand = [...myPlayer.hand]; if (sortMode === 'value') { const order = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'JOKER']; hand.sort((a, b) => order.indexOf(a.value) - order.indexOf(b.value)) } else if (sortMode === 'suit') { const suitOrder = ['♠', '♥', '♦', '♣', 'R', 'B']; const valOrder = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'JOKER']; hand.sort((a, b) => { const sd = suitOrder.indexOf(a.suit) - suitOrder.indexOf(b.suit); return sd !== 0 ? sd : valOrder.indexOf(a.value) - valOrder.indexOf(b.value) }) }; return hand }
