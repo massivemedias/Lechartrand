@@ -89,16 +89,6 @@ const GlobalStyles = () => (
   `}</style>
 )
 
-// Google icon SVG
-const GoogleIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24">
-    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-  </svg>
-)
-
 // ============ GAME LOGIC ============
 const SUITS = ['♠', '♥', '♦', '♣']
 const VALUES = ['A', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K']
@@ -337,47 +327,59 @@ export default function App() {
   const [joinCode, setJoinCode] = useState('')
   const [isHost, setIsHost] = useState(false)
   const [firebaseAvailable, setFirebaseAvailable] = useState(false)
-  const [user, setUser] = useState(null)
-  const [authLoading, setAuthLoading] = useState(true)
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [lastAction, setLastAction] = useState(null)
+  const [nameInput, setNameInput] = useState('')
 
   const stateRef = useRef({})
   const unsubscribeRef = useRef(null)
 
   useEffect(() => { stateRef.current = { players, deck, discard, melds, scores, currentPlayer, turnPhase, gamePhase, actionLog, message, roundNumber } }, [players, deck, discard, melds, scores, currentPlayer, turnPhase, gamePhase, actionLog, message, roundNumber])
 
-  // Auth state listener
+  // Simple auth - check localStorage on mount
   useEffect(() => {
-    const unsubscribe = firebaseService.subscribeToAuthState((authUser) => {
-      setUser(authUser)
-      setAuthLoading(false)
-      if (authUser) {
-        setPlayerId(authUser.uid)
-        setPlayerName(authUser.displayName || 'Joueur')
-      }
-    })
-    return () => unsubscribe()
-  }, [])
-
-  useEffect(() => {
+    const savedName = localStorage.getItem('lechartrand_player_name')
+    const savedId = localStorage.getItem('lechartrand_player_id')
+    
+    if (savedName && savedId) {
+      setPlayerName(savedName)
+      setPlayerId(savedId)
+      setIsLoggedIn(true)
+    }
+    
     setFirebaseAvailable(firebaseService.isFirebaseAvailable())
     const params = new URLSearchParams(window.location.search)
     const room = params.get('room')
     if (room && room.length === 6) setJoinCode(room.toUpperCase())
   }, [])
 
-  const handleGoogleSignIn = async () => {
-    setMessage('')
-    const result = await firebaseService.signInWithGoogle()
-    if (!result.success) {
-      setMessage('Erreur de connexion: ' + result.error)
+  const handleSimpleLogin = () => {
+    const name = nameInput.trim()
+    if (!name || name.length < 2) {
+      setMessage('Entre ton prénom (minimum 2 lettres)')
+      return
     }
+    
+    // Generate unique ID
+    let id = localStorage.getItem('lechartrand_player_id')
+    if (!id) {
+      id = 'player_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now()
+    }
+    
+    localStorage.setItem('lechartrand_player_name', name)
+    localStorage.setItem('lechartrand_player_id', id)
+    
+    setPlayerName(name)
+    setPlayerId(id)
+    setIsLoggedIn(true)
+    setMessage('')
   }
 
-  const handleSignOut = async () => {
-    await firebaseService.logOut()
-    setPlayerId('')
+  const handleLogout = () => {
+    localStorage.removeItem('lechartrand_player_name')
     setPlayerName('')
+    setIsLoggedIn(false)
+    setNameInput('')
   }
 
   useEffect(() => { return () => { if (unsubscribeRef.current) unsubscribeRef.current(); if (roomCode && playerId) firebaseService.leaveRoom(roomCode, playerId) } }, [roomCode, playerId])
@@ -459,61 +461,69 @@ export default function App() {
 
   // ============ RENDER ============
   
-  // Loading
-  if (authLoading) return (
-    <>
-      <GlobalStyles />
-      <div style={{ height: '100vh', background: 'linear-gradient(135deg, #0a0a0f, #1a1a2e)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontFamily: 'Space Grotesk, system-ui', color: '#fff' }}>
-        <div className="pulse" style={{ fontSize: 48, marginBottom: 20 }}>🃏</div>
-        <div style={{ color: '#888', fontSize: 14 }}>Chargement...</div>
-      </div>
-    </>
-  )
-
-  // LOGIN
-  if (!user && gamePhase === 'menu') return (
+  // LOGIN - Simple name entry
+  if (!isLoggedIn && gamePhase === 'menu') return (
     <>
       <GlobalStyles />
       <div style={{ height: '100vh', background: 'linear-gradient(135deg, #0a0a0f 0%, #1a1a2e 50%, #0f0f23 100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontFamily: 'Space Grotesk, system-ui', color: '#fff', padding: 20 }}>
         <div style={{ marginBottom: 50, textAlign: 'center' }}>
           <h1 style={{ fontSize: 'clamp(36px, 10vw, 64px)', background: 'linear-gradient(135deg, #00ff88, #00d4ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', marginBottom: 8, fontWeight: 700 }}>LE CHARTRAND</h1>
-          <p style={{ color: '#666', fontSize: 'clamp(14px, 3vw, 18px)', letterSpacing: 2 }}>RAMI 500 • MULTIJOUEUR</p>
+          <p style={{ color: '#666', fontSize: 'clamp(14px, 3vw, 18px)', letterSpacing: 2 }}>RAMI 500</p>
         </div>
         
-        <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 20, padding: 'clamp(24px, 5vw, 40px)', border: '1px solid rgba(255,255,255,0.08)', width: 'min(90vw, 340px)', textAlign: 'center', backdropFilter: 'blur(10px)' }}>
-          <div style={{ marginBottom: 30 }}>
-            <div className="bounce-in" style={{ fontSize: 56, marginBottom: 16 }}>🃏</div>
-            <p style={{ color: '#888', fontSize: 14 }}>Connexion</p>
+        <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 20, padding: 'clamp(28px, 6vw, 44px)', border: '1px solid rgba(255,255,255,0.08)', width: 'min(90vw, 360px)', textAlign: 'center', backdropFilter: 'blur(10px)' }}>
+          <div style={{ marginBottom: 28 }}>
+            <div className="bounce-in" style={{ fontSize: 64, marginBottom: 16 }}>🃏</div>
+            <p style={{ color: '#aaa', fontSize: 16, fontWeight: 500 }}>Bienvenue !</p>
+            <p style={{ color: '#666', fontSize: 13, marginTop: 8 }}>Entre ton prénom pour jouer</p>
           </div>
           
+          <input
+            type="text"
+            placeholder="Ton prénom..."
+            value={nameInput}
+            onChange={(e) => setNameInput(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleSimpleLogin()}
+            autoFocus
+            style={{
+              width: '100%',
+              padding: '16px 20px',
+              borderRadius: 12,
+              border: '2px solid rgba(255,255,255,0.1)',
+              background: 'rgba(255,255,255,0.05)',
+              color: '#fff',
+              fontSize: 18,
+              textAlign: 'center',
+              fontWeight: 500,
+              marginBottom: 16,
+              outline: 'none',
+              transition: 'all 0.2s ease'
+            }}
+          />
+          
           <button 
-            onClick={handleGoogleSignIn}
+            onClick={handleSimpleLogin}
             className="btn-primary"
             style={{ 
               width: '100%', 
-              padding: '14px 24px', 
+              padding: '16px 24px', 
               borderRadius: 12, 
               border: 'none', 
-              background: '#fff', 
-              color: '#333', 
-              fontSize: 15, 
-              fontWeight: '500', 
+              background: 'linear-gradient(135deg, #00ff88, #00d4ff)', 
+              color: '#000', 
+              fontSize: 17, 
+              fontWeight: '600', 
               cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 12,
               transition: 'all 0.2s ease',
             }}
           >
-            <GoogleIcon />
-            <span>Continuer avec Google</span>
+            Jouer 🎮
           </button>
           
           {message && <div className="shake" style={{ marginTop: 20, color: '#ff5757', fontSize: 13 }}>{message}</div>}
         </div>
         
-        <p style={{ position: 'absolute', bottom: 20, fontSize: 11, color: '#444' }}>v1.0 • Massive Medias • Montréal</p>
+        <p style={{ position: 'absolute', bottom: 20, fontSize: 11, color: '#444' }}>v1.1 • Massive Medias • Montréal</p>
       </div>
     </>
   )
@@ -527,10 +537,10 @@ export default function App() {
         <p style={{ color: '#666', marginBottom: 24, fontSize: 13, letterSpacing: 2 }}>RAMI 500</p>
         
         {/* User info */}
-        <div className="slide-in" style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 28, background: 'rgba(255,255,255,0.05)', padding: '10px 20px', borderRadius: 25, border: '1px solid rgba(255,255,255,0.1)' }}>
-          {user?.photoURL && <img src={user.photoURL} alt="" style={{ width: 32, height: 32, borderRadius: '50%', border: '2px solid #00ff88' }} />}
-          <span style={{ fontSize: 14, color: '#fff', fontWeight: 500 }}>{user?.displayName || playerName}</span>
-          <button onClick={handleSignOut} className="btn-primary" style={{ padding: '6px 12px', borderRadius: 6, border: 'none', background: 'rgba(255,255,255,0.1)', color: '#888', fontSize: 11, cursor: 'pointer' }}>Déconnexion</button>
+        <div className="slide-in" style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 28, background: 'rgba(255,255,255,0.05)', padding: '12px 20px', borderRadius: 25, border: '1px solid rgba(255,255,255,0.1)' }}>
+          <span style={{ fontSize: 24 }}>👤</span>
+          <span style={{ fontSize: 16, color: '#fff', fontWeight: 500 }}>{playerName}</span>
+          <button onClick={handleLogout} className="btn-primary" style={{ padding: '6px 12px', borderRadius: 6, border: 'none', background: 'rgba(255,255,255,0.1)', color: '#888', fontSize: 11, cursor: 'pointer' }}>Changer</button>
         </div>
 
         <div style={{ display: 'flex', gap: 16, flexDirection: 'column', width: 'min(90vw, 300px)' }}>
