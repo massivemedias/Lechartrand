@@ -270,7 +270,7 @@ const DiscardPile = ({ cards, canClick, onClickCard }) => {
             onClick={() => onClickCard(i)}
             disabled={!canClick}
             style={{ 
-              marginLeft: i > 0 ? -20 : 0,
+              marginLeft: i > 0 ? -26 : 0,
               zIndex: i,
               opacity: canClick ? 1 : 0.8,
               border: canClick ? '2px solid rgba(0,255,136,0.5)' : undefined
@@ -729,7 +729,7 @@ export default function App() {
                           }} 
                           onClick={() => selectedCards.length === 1 && canAddToMeld(m.cards, selectedCards[0]) && addToMeld(melds.indexOf(m))}
                         >
-                          {m.cards.map((c, ci) => <Card key={c.id} card={c} mini style={{ marginLeft: ci > 0 ? -10 : 0 }} disabled />)}
+                          {m.cards.map((c, ci) => <Card key={c.id} card={c} mini style={{ marginLeft: ci > 0 ? -18 : 0, zIndex: ci }} disabled />)}
                         </div>
                       ))}
                     </div>
@@ -789,7 +789,7 @@ export default function App() {
                     }} 
                     onClick={() => selectedCards.length === 1 && canAddToMeld(m.cards, selectedCards[0]) && addToMeld(melds.indexOf(m))}
                   >
-                    {m.cards.map((c, ci) => <Card key={c.id} card={c} small style={{ marginLeft: ci > 0 ? -18 : 0, zIndex: ci }} disabled />)}
+                    {m.cards.map((c, ci) => <Card key={c.id} card={c} small style={{ marginLeft: ci > 0 ? -26 : 0, zIndex: ci }} disabled />)}
                     <div style={{ marginLeft: 6, fontSize: 12, color: '#00ff88', fontWeight: 700 }}>{m.cards.reduce((s, c) => s + getCardPoints(c), 0)}p</div>
                   </div>
                 ))}
@@ -836,10 +836,10 @@ export default function App() {
             </div>
           </div>
 
-          {/* Cards - séparées */}
+          {/* Cards - séparées et complètes */}
           <div style={{ 
             display: 'flex', 
-            gap: 6, 
+            gap: 8, 
             justifyContent: 'center', 
             flexWrap: 'wrap',
             marginBottom: isMyTurn && turnPhase === 'play' ? 10 : 0
