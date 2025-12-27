@@ -133,7 +133,7 @@ const isValidMeld = (cards) => {
 }
 
 const canAddToMeld = (meld, card) => isValidMeld([...meld, card])
-const generateRoomCode = () => { const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let c = ''; for (let i = 0; i < 6; i++) c += chars[Math.floor(Math.random() * chars.length)]; return c }
+const generateRoomCode = () => String(Math.floor(Math.random() * 900) + 100) // 100-999
 
 // ============ CARD COMPONENTS ============
 const Card = ({ card, selected, onClick, faceDown, small, mini, disabled, style, animClass, delay = 0 }) => {
@@ -350,7 +350,7 @@ export default function App() {
     setFirebaseAvailable(firebaseService.isFirebaseAvailable())
     const params = new URLSearchParams(window.location.search)
     const room = params.get('room')
-    if (room && room.length === 6) setJoinCode(room.toUpperCase())
+    if (room && room.length === 3) setJoinCode(room)
   }, [])
 
   const handleSimpleLogin = () => {
@@ -398,7 +398,7 @@ export default function App() {
 
   const createRoom = async () => { const code = generateRoomCode(); const hostPlayer = { id: playerId, name: playerName || 'Hôte', isHost: true }; if (await firebaseService.createRoom(code, hostPlayer)) { setRoomCode(code); setGameMode('online'); setIsHost(true); setPlayers([hostPlayer]); setScores([0]); setGamePhase('lobby'); subscribeToRoom(code) } else setMessage('Erreur création') }
 
-  const joinRoom = async () => { if (!joinCode || joinCode.length !== 6) return; const code = joinCode.toUpperCase(); if (!await firebaseService.checkRoomExists(code)) { setMessage('Salon introuvable'); return }; const player = { id: playerId, name: playerName || 'Joueur', isHost: false }; const result = await firebaseService.joinRoom(code, player); if (result.success) { setRoomCode(code); setGameMode('online'); setIsHost(false); setGamePhase('lobby'); subscribeToRoom(code) } else setMessage('Erreur: ' + result.error) }
+  const joinRoom = async () => { if (!joinCode || joinCode.length !== 3) return; const code = joinCode; if (!await firebaseService.checkRoomExists(code)) { setMessage('Salon introuvable'); return }; const player = { id: playerId, name: playerName || 'Joueur', isHost: false }; const result = await firebaseService.joinRoom(code, player); if (result.success) { setRoomCode(code); setGameMode('online'); setIsHost(false); setGamePhase('lobby'); subscribeToRoom(code) } else setMessage('Erreur: ' + result.error) }
 
   const startSoloGame = () => { setGameMode('solo'); const numDecks = numPlayers === 4 ? 2 : 1; const newDeck = createDeck(numDecks, Date.now()); const newPlayers = []; for (let i = 0; i < numPlayers; i++) newPlayers.push({ id: i === 0 ? playerId : `ai_${i}`, name: i === 0 ? (playerName || 'Toi') : `Ordi ${i}`, hand: newDeck.splice(0, 9), isHuman: i === 0, isAI: i !== 0 }); setPlayers(newPlayers); setDeck(newDeck); setDiscard(newDeck.splice(0, 1)); setMelds([]); setCurrentPlayer(0); setTurnPhase('draw'); setSelectedCards([]); setGamePhase('playing'); setMessage('Ton tour - Pioche'); setActionLog([]); setScores(new Array(numPlayers).fill(0)) }
 
@@ -574,8 +574,8 @@ export default function App() {
             </div>
             <button onClick={createRoom} className="btn-primary" style={{ width: '100%', padding: '12px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg, #00ff88, #00d4ff)', color: '#000', fontSize: 14, fontWeight: 600, cursor: 'pointer', marginBottom: 10 }}>Créer une partie</button>
             <div style={{ display: 'flex', gap: 8 }}>
-              <input type="text" placeholder="CODE" value={joinCode} onChange={(e) => setJoinCode(e.target.value.toUpperCase().slice(0, 6))} style={{ flex: 1, padding: '10px 14px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.05)', color: '#fff', fontSize: 14, textAlign: 'center', letterSpacing: 3, fontWeight: 600 }} />
-              <button onClick={joinRoom} disabled={joinCode.length !== 6} className="btn-primary" style={{ padding: '10px 18px', borderRadius: 8, border: 'none', background: joinCode.length === 6 ? '#00ff88' : 'rgba(255,255,255,0.08)', color: joinCode.length === 6 ? '#000' : '#555', fontWeight: 600, fontSize: 13, cursor: joinCode.length === 6 ? 'pointer' : 'not-allowed' }}>OK</button>
+              <input type="text" inputMode="numeric" pattern="[0-9]*" placeholder="123" value={joinCode} onChange={(e) => setJoinCode(e.target.value.replace(/\D/g, '').slice(0, 3))} style={{ flex: 1, padding: '10px 14px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.05)', color: '#fff', fontSize: 18, textAlign: 'center', letterSpacing: 6, fontWeight: 600, maxWidth: 100 }} />
+              <button onClick={joinRoom} disabled={joinCode.length !== 3} className="btn-primary" style={{ padding: '10px 18px', borderRadius: 8, border: 'none', background: joinCode.length === 3 ? '#00ff88' : 'rgba(255,255,255,0.08)', color: joinCode.length === 3 ? '#000' : '#555', fontWeight: 600, fontSize: 13, cursor: joinCode.length === 3 ? 'pointer' : 'not-allowed' }}>OK</button>
             </div>
           </div>
         </div>
@@ -594,7 +594,7 @@ export default function App() {
         <h2 style={{ fontSize: 24, marginBottom: 10, fontWeight: 600 }}>Salon de jeu</h2>
         <div className="glow" style={{ background: 'rgba(139,92,246,0.15)', padding: '14px 28px', borderRadius: 12, marginBottom: 20, display: 'flex', alignItems: 'center', gap: 14, border: '1px solid rgba(139,92,246,0.3)' }}>
           <span style={{ fontSize: 28, fontWeight: 'bold', letterSpacing: 4, color: '#00ff88' }}>{roomCode}</span>
-          <button onClick={copyRoomLink} className="btn-primary" style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: 'rgba(255,255,255,0.1)', color: '#fff', fontSize: 12, cursor: 'pointer' }}>📋 Copier</button>
+          <button onClick={copyRoomLink} className="btn-primary" style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: 'rgba(255,255,255,0.1)', color: '#fff', fontSize: 12, cursor: 'pointer' }}>Copier</button>
         </div>
         {message && <div style={{ color: '#00ff88', marginBottom: 12, fontSize: 12 }}>{message}</div>}
         <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 12, padding: 20, marginBottom: 20, minWidth: 260, border: '1px solid rgba(255,255,255,0.08)' }}>
