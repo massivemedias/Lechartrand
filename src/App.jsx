@@ -249,29 +249,30 @@ const DiscardPile = ({ cards, canClick, onClickCard }) => {
       ref={scrollRef}
       style={{ 
         display: 'flex', 
-        gap: 3, 
         overflowX: 'auto',
         overflowY: 'hidden',
-        padding: '6px 8px',
+        padding: '8px 12px',
         background: 'rgba(139,92,246,0.1)',
-        borderRadius: 8,
+        borderRadius: 10,
         border: '1px solid rgba(139,92,246,0.3)',
-        minHeight: 40,
+        minHeight: 56,
         alignItems: 'center'
       }}
     >
       {cards.length === 0 ? (
-        <span style={{ color: '#666', fontSize: 11, fontStyle: 'italic' }}>Vide</span>
+        <span style={{ color: '#666', fontSize: 12, fontStyle: 'italic' }}>Vide</span>
       ) : (
         cards.map((card, i) => (
           <Card 
             key={card.id} 
             card={card} 
-            mini
+            small
             onClick={() => onClickCard(i)}
             disabled={!canClick}
             style={{ 
-              opacity: canClick ? 1 : 0.7,
+              marginLeft: i > 0 ? -20 : 0,
+              zIndex: i,
+              opacity: canClick ? 1 : 0.8,
               border: canClick ? '2px solid rgba(0,255,136,0.5)' : undefined
             }}
             animClass={i === cards.length - 1 ? 'slide-in' : ''}
@@ -308,6 +309,7 @@ export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [lastAction, setLastAction] = useState(null)
   const [nameInput, setNameInput] = useState('')
+  const [lastDrawnCardId, setLastDrawnCardId] = useState(null)
 
   const stateRef = useRef({})
   const unsubscribeRef = useRef(null)
@@ -388,13 +390,13 @@ export default function App() {
   const drawFromDeck = async () => { 
     if (turnPhase !== 'draw' || !isMyTurn) return
     setLastAction('draw')
-    const newDeck = [...deck]; const card = newDeck.pop(); const newPlayers = [...players]; newPlayers[myPlayerIndex] = { ...newPlayers[myPlayerIndex], hand: [...newPlayers[myPlayerIndex].hand, card] }; const newLog = [...actionLog, { player: players[myPlayerIndex].name, action: 'pioche', icon: '+' }]; setDeck(newDeck); setPlayers(newPlayers); setTurnPhase('play'); setActionLog(newLog); setMessage('Pose ou défausse'); if (gameMode === 'online') await syncToFirebase({ deck: newDeck, players: newPlayers, turnPhase: 'play', actionLog: newLog, message: 'Pose ou défausse' }) 
+    const newDeck = [...deck]; const card = newDeck.pop(); setLastDrawnCardId(card.id); const newPlayers = [...players]; newPlayers[myPlayerIndex] = { ...newPlayers[myPlayerIndex], hand: [...newPlayers[myPlayerIndex].hand, card] }; const newLog = [...actionLog, { player: players[myPlayerIndex].name, action: 'pioche', icon: '+' }]; setDeck(newDeck); setPlayers(newPlayers); setTurnPhase('play'); setActionLog(newLog); setMessage('Pose ou défausse'); if (gameMode === 'online') await syncToFirebase({ deck: newDeck, players: newPlayers, turnPhase: 'play', actionLog: newLog, message: 'Pose ou défausse' }) 
   }
 
   const drawFromDiscard = async (idx) => { 
     if (turnPhase !== 'draw' || !isMyTurn) return
     setLastAction('drawDiscard')
-    const cardsToTake = discard.slice(idx); const remaining = discard.slice(0, idx); const newPlayers = [...players]; newPlayers[myPlayerIndex] = { ...newPlayers[myPlayerIndex], hand: [...newPlayers[myPlayerIndex].hand, ...cardsToTake] }; const newLog = [...actionLog, { player: players[myPlayerIndex].name, action: cardsToTake.length > 1 ? `+${cardsToTake.length}` : cardsToTake[0].value + cardsToTake[0].suit, icon: '+' }]; setDiscard(remaining); setPlayers(newPlayers); setTurnPhase('play'); setActionLog(newLog); setMessage('Pose ou défausse'); if (gameMode === 'online') await syncToFirebase({ discard: remaining, players: newPlayers, turnPhase: 'play', actionLog: newLog }) 
+    const cardsToTake = discard.slice(idx); setLastDrawnCardId(cardsToTake[0]?.id); const remaining = discard.slice(0, idx); const newPlayers = [...players]; newPlayers[myPlayerIndex] = { ...newPlayers[myPlayerIndex], hand: [...newPlayers[myPlayerIndex].hand, ...cardsToTake] }; const newLog = [...actionLog, { player: players[myPlayerIndex].name, action: cardsToTake.length > 1 ? `+${cardsToTake.length}` : cardsToTake[0].value + cardsToTake[0].suit, icon: '+' }]; setDiscard(remaining); setPlayers(newPlayers); setTurnPhase('play'); setActionLog(newLog); setMessage('Pose ou défausse'); if (gameMode === 'online') await syncToFirebase({ discard: remaining, players: newPlayers, turnPhase: 'play', actionLog: newLog }) 
   }
 
   const toggleCard = (card) => { if (!isMyTurn || turnPhase !== 'play') return; setSelectedCards(prev => prev.some(c => c.id === card.id) ? prev.filter(c => c.id !== card.id) : [...prev, card]) }
@@ -413,7 +415,7 @@ export default function App() {
 
   const discardCard = async () => { 
     if (selectedCards.length !== 1) return; const card = selectedCards[0]
-    setLastAction('discard')
+    setLastAction('discard'); setLastDrawnCardId(null)
     const newPlayers = [...players]; newPlayers[myPlayerIndex] = { ...newPlayers[myPlayerIndex], hand: newPlayers[myPlayerIndex].hand.filter(c => c.id !== card.id) }; const newDiscard = [...discard, card]; const newLog = [...actionLog, { player: players[myPlayerIndex].name, action: card.value + card.suit, icon: '-' }]; setPlayers(newPlayers); setDiscard(newDiscard); setSelectedCards([]); setActionLog(newLog); if (newPlayers[myPlayerIndex].hand.length === 0) await endRound(newPlayers, melds, newLog); else { const next = (currentPlayer + 1) % players.length; const msg = `Tour de ${newPlayers[next].name}`; setCurrentPlayer(next); setTurnPhase('draw'); setMessage(msg); if (gameMode === 'online') await syncToFirebase({ players: newPlayers, discard: newDiscard, currentPlayer: next, turnPhase: 'draw', actionLog: newLog, message: msg }) } 
   }
 
@@ -738,23 +740,23 @@ export default function App() {
           </div>
 
           {/* Center: Deck & Discard */}
-          <div style={{ display: 'flex', gap: 16, justifyContent: 'center', alignItems: 'flex-start', padding: '6px 0' }}>
+          <div style={{ display: 'flex', gap: 20, justifyContent: 'center', alignItems: 'flex-start', padding: '8px 0' }}>
             {/* Deck */}
             <div 
               onClick={canClickDiscard ? drawFromDeck : undefined} 
               style={{ textAlign: 'center', cursor: canClickDiscard ? 'pointer' : 'default' }}
             >
-              <div style={{ fontSize: 11, color: '#888', marginBottom: 4, fontWeight: 600 }}>Pioche</div>
+              <div style={{ fontSize: 12, color: '#888', marginBottom: 6, fontWeight: 600 }}>Pioche</div>
               <div className={canClickDiscard ? 'glow' : ''} style={{ position: 'relative' }}>
-                <Card faceDown small />
-                {canClickDiscard && <div style={{ position: 'absolute', inset: -2, borderRadius: 6, border: '2px solid rgba(0,255,136,0.5)' }} />}
+                <Card faceDown />
+                {canClickDiscard && <div style={{ position: 'absolute', inset: -3, borderRadius: 10, border: '2px solid rgba(0,255,136,0.5)' }} />}
               </div>
-              <div style={{ fontSize: 11, color: '#666', marginTop: 3 }}>{deck.length}</div>
+              <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>{deck.length}</div>
             </div>
 
             {/* Discard */}
-            <div style={{ flex: 1, maxWidth: 280 }}>
-              <div style={{ fontSize: 11, color: '#888', marginBottom: 4, fontWeight: 600 }}>Défausse ({discard.length})</div>
+            <div style={{ flex: 1, maxWidth: 350 }}>
+              <div style={{ fontSize: 12, color: '#888', marginBottom: 6, fontWeight: 600 }}>Défausse ({discard.length})</div>
               <DiscardPile cards={discard} canClick={canClickDiscard} onClickCard={drawFromDiscard} />
             </div>
           </div>
@@ -767,11 +769,11 @@ export default function App() {
           borderTop: isMyTurn ? '2px solid rgba(0,255,136,0.5)' : '1px solid rgba(255,255,255,0.08)',
           padding: '10px 10px 14px'
         }}>
-          {/* My melds - proche de la main */}
+          {/* My melds - proche de la main, empilées */}
           {myMelds.length > 0 && (
             <div style={{ marginBottom: 10 }}>
               <div style={{ fontSize: 10, color: '#666', marginBottom: 4, fontWeight: 600, textAlign: 'center' }}>Tes combinaisons</div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, justifyContent: 'center' }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'center' }}>
                 {myMelds.map((m, mi) => (
                   <div 
                     key={mi} 
@@ -780,15 +782,15 @@ export default function App() {
                       display: 'flex', 
                       alignItems: 'center', 
                       background: 'rgba(0,255,136,0.08)', 
-                      borderRadius: 6, 
-                      padding: 3, 
+                      borderRadius: 8, 
+                      padding: '4px 8px 4px 6px', 
                       border: selectedCards.length === 1 && canAddToMeld(m.cards, selectedCards[0]) ? '2px dashed #00ff88' : '1px solid rgba(0,255,136,0.2)',
                       cursor: selectedCards.length === 1 && canAddToMeld(m.cards, selectedCards[0]) ? 'pointer' : 'default' 
                     }} 
                     onClick={() => selectedCards.length === 1 && canAddToMeld(m.cards, selectedCards[0]) && addToMeld(melds.indexOf(m))}
                   >
-                    {m.cards.map((c, ci) => <Card key={c.id} card={c} mini style={{ marginLeft: ci > 0 ? -8 : 0 }} disabled />)}
-                    <div style={{ marginLeft: 4, fontSize: 11, color: '#00ff88', fontWeight: 700 }}>{m.cards.reduce((s, c) => s + getCardPoints(c), 0)}p</div>
+                    {m.cards.map((c, ci) => <Card key={c.id} card={c} small style={{ marginLeft: ci > 0 ? -18 : 0, zIndex: ci }} disabled />)}
+                    <div style={{ marginLeft: 6, fontSize: 12, color: '#00ff88', fontWeight: 700 }}>{m.cards.reduce((s, c) => s + getCardPoints(c), 0)}p</div>
                   </div>
                 ))}
               </div>
@@ -834,25 +836,32 @@ export default function App() {
             </div>
           </div>
 
-          {/* Cards */}
+          {/* Cards - séparées */}
           <div style={{ 
             display: 'flex', 
-            gap: 4, 
+            gap: 6, 
             justifyContent: 'center', 
             flexWrap: 'wrap',
             marginBottom: isMyTurn && turnPhase === 'play' ? 10 : 0
           }}>
-            {sortedHand().map((card, i) => (
-              <Card 
-                key={card.id} 
-                card={card} 
-                small
-                selected={selectedCards.some(c => c.id === card.id)} 
-                onClick={() => toggleCard(card)} 
-                disabled={!isMyTurn || turnPhase !== 'play'}
-                delay={i * 30}
-              />
-            ))}
+            {sortedHand().map((card, i) => {
+              const isNewCard = card.id === lastDrawnCardId
+              return (
+                <Card 
+                  key={card.id} 
+                  card={card} 
+                  selected={selectedCards.some(c => c.id === card.id)} 
+                  onClick={() => toggleCard(card)} 
+                  disabled={!isMyTurn || turnPhase !== 'play'}
+                  delay={i * 30}
+                  animClass={isNewCard ? 'card-enter' : ''}
+                  style={isNewCard ? { 
+                    boxShadow: '0 0 12px rgba(0,255,136,0.6), 0 0 24px rgba(0,255,136,0.3)',
+                    border: '2px solid #00ff88'
+                  } : {}}
+                />
+              )
+            })}
           </div>
 
           {/* Action buttons */}
