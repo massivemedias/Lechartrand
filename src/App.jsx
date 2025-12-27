@@ -800,22 +800,21 @@ export default function App() {
                     {(p.hand?.length || 0) > 3 && <div style={{ marginLeft: -8, background: '#2d2d44', borderRadius: 4, padding: '0 5px', fontSize: 10, color: '#888', display: 'flex', alignItems: 'center', fontWeight: 600 }}>+{p.hand.length - 3}</div>}
                   </div>
                   {pMelds.length > 0 && (
-                    <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 6, marginTop: 6 }}>
+                    <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 6, marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 4 }}>
                       {pMelds.map((m, mi) => (
                         <div 
                           key={mi} 
                           style={{ 
                             display: 'flex', 
-                            marginBottom: 3, 
                             padding: 3,
-                            borderRadius: 4,
+                            borderRadius: 6,
                             cursor: selectedCards.length === 1 && canAddToMeld(m.cards, selectedCards[0]) ? 'pointer' : 'default', 
                             border: selectedCards.length === 1 && canAddToMeld(m.cards, selectedCards[0]) ? '2px dashed #00ff88' : '1px solid rgba(255,255,255,0.05)',
                             background: 'rgba(0,0,0,0.2)'
                           }} 
                           onClick={() => selectedCards.length === 1 && canAddToMeld(m.cards, selectedCards[0]) && addToMeld(melds.indexOf(m))}
                         >
-                          {m.cards.map((c, ci) => <Card key={c.id} card={c} mini style={{ marginLeft: ci > 0 ? -14 : 0, zIndex: ci }} disabled />)}
+                          {m.cards.map((c, ci) => <Card key={c.id} card={c} small style={{ marginLeft: ci > 0 ? -20 : 0, zIndex: ci }} disabled />)}
                         </div>
                       ))}
                     </div>
