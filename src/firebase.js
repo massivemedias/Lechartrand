@@ -10,18 +10,100 @@ import {
   onDisconnect,
   serverTimestamp 
 } from 'firebase/database';
+import {
+  getAuth,
+  signInWithPopup,
+  GoogleAuthProvider,
+  signOut,
+  onAuthStateChanged
+} from 'firebase/auth';
 import firebaseConfig from './firebaseConfig';
 
 // Initialize Firebase
 let app;
 let db;
+let auth;
+let googleProvider;
 
 try {
   app = initializeApp(firebaseConfig);
   db = getDatabase(app);
+  auth = getAuth(app);
+  googleProvider = new GoogleAuthProvider();
 } catch (error) {
   console.warn('Firebase initialization failed:', error);
 }
+
+// ============ AUTHENTICATION ============
+
+// Sign in with Google
+export const signInWithGoogle = async () => {
+  if (!auth) return { success: false, error: 'Auth not initialized' };
+  
+  try {
+    const result = await signInWithPopup(auth, googleProvider);
+    const user = result.user;
+    return {
+      success: true,
+      user: {
+        uid: user.uid,
+        displayName: user.displayName,
+        email: user.email,
+        photoURL: user.photoURL
+      }
+    };
+  } catch (error) {
+    console.error('Error signing in with Google:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+// Sign out
+export const logOut = async () => {
+  if (!auth) return;
+  
+  try {
+    await signOut(auth);
+  } catch (error) {
+    console.error('Error signing out:', error);
+  }
+};
+
+// Subscribe to auth state changes
+export const subscribeToAuthState = (callback) => {
+  if (!auth) {
+    callback(null);
+    return () => {};
+  }
+  
+  return onAuthStateChanged(auth, (user) => {
+    if (user) {
+      callback({
+        uid: user.uid,
+        displayName: user.displayName,
+        email: user.email,
+        photoURL: user.photoURL
+      });
+    } else {
+      callback(null);
+    }
+  });
+};
+
+// Get current user
+export const getCurrentUser = () => {
+  if (!auth) return null;
+  const user = auth.currentUser;
+  if (!user) return null;
+  return {
+    uid: user.uid,
+    displayName: user.displayName,
+    email: user.email,
+    photoURL: user.photoURL
+  };
+};
+
+// ============ DATABASE ============
 
 // Room reference helper
 const getRoomRef = (roomCode) => ref(db, `rooms/${roomCode}`);

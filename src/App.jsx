@@ -1,6 +1,16 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import * as firebaseService from './firebase'
 
+// Google icon SVG
+const GoogleIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24">
+    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+  </svg>
+)
+
 const SUITS = ['♠', '♥', '♦', '♣']
 const VALUES = ['A', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K']
 
@@ -82,23 +92,47 @@ export default function App() {
   const [joinCode, setJoinCode] = useState('')
   const [isHost, setIsHost] = useState(false)
   const [firebaseAvailable, setFirebaseAvailable] = useState(false)
+  const [user, setUser] = useState(null)
+  const [authLoading, setAuthLoading] = useState(true)
 
   const stateRef = useRef({})
   const unsubscribeRef = useRef(null)
 
   useEffect(() => { stateRef.current = { players, deck, discard, melds, scores, currentPlayer, turnPhase, gamePhase, actionLog, message, roundNumber } }, [players, deck, discard, melds, scores, currentPlayer, turnPhase, gamePhase, actionLog, message, roundNumber])
 
+  // Auth state listener
   useEffect(() => {
-    let id = localStorage.getItem('lechartrand_player_id')
-    if (!id) { id = 'player_' + Math.random().toString(36).substr(2, 9); localStorage.setItem('lechartrand_player_id', id) }
-    setPlayerId(id)
-    const savedName = localStorage.getItem('lechartrand_player_name')
-    if (savedName) setPlayerName(savedName)
+    const unsubscribe = firebaseService.subscribeToAuthState((authUser) => {
+      setUser(authUser)
+      setAuthLoading(false)
+      if (authUser) {
+        setPlayerId(authUser.uid)
+        setPlayerName(authUser.displayName || 'Joueur')
+      }
+    })
+    return () => unsubscribe()
+  }, [])
+
+  useEffect(() => {
     setFirebaseAvailable(firebaseService.isFirebaseAvailable())
     const params = new URLSearchParams(window.location.search)
     const room = params.get('room')
     if (room && room.length === 6) setJoinCode(room.toUpperCase())
   }, [])
+
+  const handleGoogleSignIn = async () => {
+    setMessage('')
+    const result = await firebaseService.signInWithGoogle()
+    if (!result.success) {
+      setMessage('Erreur de connexion: ' + result.error)
+    }
+  }
+
+  const handleSignOut = async () => {
+    await firebaseService.logOut()
+    setPlayerId('')
+    setPlayerName('')
+  }
 
   useEffect(() => { return () => { if (unsubscribeRef.current) unsubscribeRef.current(); if (roomCode && playerId) firebaseService.leaveRoom(roomCode, playerId) } }, [roomCode, playerId])
 
@@ -157,12 +191,73 @@ export default function App() {
 
   const copyRoomLink = () => { navigator.clipboard.writeText(`${window.location.origin}${window.location.pathname}?room=${roomCode}`); setMessage('Lien copié!'); setTimeout(() => setMessage(''), 2000) }
 
-  // MENU
+  // Loading
+  if (authLoading) return (
+    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #0a0a0f, #1a1a2e)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontFamily: 'Space Grotesk, system-ui', color: '#fff' }}>
+      <div style={{ fontSize: 24, marginBottom: 16 }}>🃏</div>
+      <div style={{ color: '#888', fontSize: 13 }}>Chargement...</div>
+    </div>
+  )
+
+  // LOGIN
+  if (!user && gamePhase === 'menu') return (
+    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #0a0a0f, #1a1a2e)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontFamily: 'Space Grotesk, system-ui', color: '#fff', padding: 16 }}>
+      <div style={{ marginBottom: 40, textAlign: 'center' }}>
+        <h1 style={{ fontSize: 48, background: 'linear-gradient(135deg, #00ff88, #00d4ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', marginBottom: 4 }}>LE CHARTRAND</h1>
+        <p style={{ color: '#888', fontSize: 14 }}>Rami 500 • Multijoueur</p>
+      </div>
+      
+      <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: 16, padding: 32, border: '1px solid rgba(255,255,255,0.1)', width: 300, textAlign: 'center' }}>
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ fontSize: 48, marginBottom: 12 }}>🃏</div>
+          <p style={{ color: '#aaa', fontSize: 13, lineHeight: 1.5 }}>Connecte-toi pour jouer<br/>avec tes amis en ligne</p>
+        </div>
+        
+        <button 
+          onClick={handleGoogleSignIn}
+          style={{ 
+            width: '100%', 
+            padding: '12px 20px', 
+            borderRadius: 8, 
+            border: '1px solid rgba(255,255,255,0.2)', 
+            background: '#fff', 
+            color: '#333', 
+            fontSize: 14, 
+            fontWeight: '500', 
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 12,
+            transition: 'all 0.2s',
+          }}
+          onMouseOver={(e) => e.target.style.background = '#f5f5f5'}
+          onMouseOut={(e) => e.target.style.background = '#fff'}
+        >
+          <GoogleIcon />
+          <span>Continuer avec Google</span>
+        </button>
+        
+        {message && <div style={{ marginTop: 16, color: '#ff5757', fontSize: 12 }}>{message}</div>}
+      </div>
+      
+      <p style={{ marginTop: 40, fontSize: 10, color: '#555' }}>v1.0 • Massive Medias • Montréal</p>
+    </div>
+  )
+
+  // MENU (logged in)
   if (gamePhase === 'menu') return (
     <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #0a0a0f, #1a1a2e)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontFamily: 'Space Grotesk, system-ui', color: '#fff', padding: 16 }}>
       <h1 style={{ fontSize: 42, background: 'linear-gradient(135deg, #00ff88, #00d4ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', marginBottom: 2 }}>LE CHARTRAND</h1>
       <p style={{ color: '#888', marginBottom: 20, fontSize: 13 }}>Rami 500</p>
-      <div style={{ marginBottom: 20 }}><input type="text" placeholder="Ton nom..." value={playerName} onChange={(e) => { setPlayerName(e.target.value); localStorage.setItem('lechartrand_player_name', e.target.value) }} style={{ padding: '8px 14px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.1)', color: '#fff', fontSize: 13, width: 180, textAlign: 'center' }} /></div>
+      
+      {/* User info */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20, background: 'rgba(255,255,255,0.05)', padding: '8px 16px', borderRadius: 20, border: '1px solid rgba(255,255,255,0.1)' }}>
+        {user?.photoURL && <img src={user.photoURL} alt="" style={{ width: 28, height: 28, borderRadius: '50%', border: '2px solid #00ff88' }} />}
+        <span style={{ fontSize: 13, color: '#fff' }}>{user?.displayName || playerName}</span>
+        <button onClick={handleSignOut} style={{ padding: '4px 10px', borderRadius: 4, border: 'none', background: 'rgba(255,255,255,0.1)', color: '#888', fontSize: 10, cursor: 'pointer' }}>Déconnexion</button>
+      </div>
+
       <div style={{ display: 'flex', gap: 12, flexDirection: 'column', width: 260 }}>
         <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: 10, padding: 16, border: '1px solid rgba(255,255,255,0.1)' }}>
           <div style={{ fontSize: 14, fontWeight: 'bold', marginBottom: 10 }}>🎮 Solo vs IA</div>
@@ -170,8 +265,12 @@ export default function App() {
           <button onClick={startSoloGame} style={{ width: '100%', padding: '8px', borderRadius: 6, border: 'none', background: 'linear-gradient(135deg, #8b5cf6, #6366f1)', color: '#fff', fontSize: 13, fontWeight: 'bold', cursor: 'pointer' }}>Jouer</button>
         </div>
         <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: 10, padding: 16, border: '1px solid rgba(255,255,255,0.1)' }}>
-          <div style={{ fontSize: 14, fontWeight: 'bold', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>👥 Multi <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, background: firebaseAvailable ? 'rgba(0,255,136,0.2)' : 'rgba(255,87,87,0.2)', color: firebaseAvailable ? '#00ff88' : '#ff5757' }}>{firebaseAvailable ? '● Online' : '○ Config'}</span></div>
-          {firebaseAvailable ? <><button onClick={createRoom} style={{ width: '100%', padding: '8px', borderRadius: 6, border: 'none', background: 'linear-gradient(135deg, #00ff88, #00d4ff)', color: '#000', fontSize: 13, fontWeight: 'bold', cursor: 'pointer', marginBottom: 8 }}>Créer</button><div style={{ display: 'flex', gap: 6 }}><input type="text" placeholder="CODE" value={joinCode} onChange={(e) => setJoinCode(e.target.value.toUpperCase().slice(0, 6))} style={{ flex: 1, padding: '6px 10px', borderRadius: 5, border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.1)', color: '#fff', fontSize: 13, textAlign: 'center', letterSpacing: 2 }} /><button onClick={joinRoom} disabled={joinCode.length !== 6} style={{ padding: '6px 14px', borderRadius: 5, border: 'none', background: joinCode.length === 6 ? '#00ff88' : 'rgba(255,255,255,0.1)', color: joinCode.length === 6 ? '#000' : '#666', fontWeight: 'bold', fontSize: 12, cursor: joinCode.length === 6 ? 'pointer' : 'not-allowed' }}>OK</button></div></> : <div style={{ fontSize: 11, color: '#888', textAlign: 'center' }}>Config Firebase dans<br/><code style={{ color: '#8b5cf6' }}>src/firebaseConfig.js</code></div>}
+          <div style={{ fontSize: 14, fontWeight: 'bold', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>👥 Multi <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, background: 'rgba(0,255,136,0.2)', color: '#00ff88' }}>● Online</span></div>
+          <button onClick={createRoom} style={{ width: '100%', padding: '8px', borderRadius: 6, border: 'none', background: 'linear-gradient(135deg, #00ff88, #00d4ff)', color: '#000', fontSize: 13, fontWeight: 'bold', cursor: 'pointer', marginBottom: 8 }}>Créer une partie</button>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <input type="text" placeholder="CODE" value={joinCode} onChange={(e) => setJoinCode(e.target.value.toUpperCase().slice(0, 6))} style={{ flex: 1, padding: '6px 10px', borderRadius: 5, border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.1)', color: '#fff', fontSize: 13, textAlign: 'center', letterSpacing: 2 }} />
+            <button onClick={joinRoom} disabled={joinCode.length !== 6} style={{ padding: '6px 14px', borderRadius: 5, border: 'none', background: joinCode.length === 6 ? '#00ff88' : 'rgba(255,255,255,0.1)', color: joinCode.length === 6 ? '#000' : '#666', fontWeight: 'bold', fontSize: 12, cursor: joinCode.length === 6 ? 'pointer' : 'not-allowed' }}>Rejoindre</button>
+          </div>
         </div>
       </div>
       {message && <div style={{ marginTop: 15, color: '#ff5757', fontSize: 12 }}>{message}</div>}
