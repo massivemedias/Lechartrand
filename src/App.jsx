@@ -410,13 +410,13 @@ export default function App() {
   const drawFromDeck = async () => { 
     if (turnPhase !== 'draw' || !isMyTurn) return
     setLastAction('draw')
-    const newDeck = [...deck]; const card = newDeck.pop(); const newPlayers = [...players]; newPlayers[myPlayerIndex] = { ...newPlayers[myPlayerIndex], hand: [...newPlayers[myPlayerIndex].hand, card] }; const newLog = [...actionLog, { player: players[myPlayerIndex].name, action: 'pioche', icon: '📥' }]; setDeck(newDeck); setPlayers(newPlayers); setTurnPhase('play'); setActionLog(newLog); setMessage('Pose ou défausse'); if (gameMode === 'online') await syncToFirebase({ deck: newDeck, players: newPlayers, turnPhase: 'play', actionLog: newLog, message: 'Pose ou défausse' }) 
+    const newDeck = [...deck]; const card = newDeck.pop(); const newPlayers = [...players]; newPlayers[myPlayerIndex] = { ...newPlayers[myPlayerIndex], hand: [...newPlayers[myPlayerIndex].hand, card] }; const newLog = [...actionLog, { player: players[myPlayerIndex].name, action: 'pioche', icon: '+' }]; setDeck(newDeck); setPlayers(newPlayers); setTurnPhase('play'); setActionLog(newLog); setMessage('Pose ou défausse'); if (gameMode === 'online') await syncToFirebase({ deck: newDeck, players: newPlayers, turnPhase: 'play', actionLog: newLog, message: 'Pose ou défausse' }) 
   }
 
   const drawFromDiscard = async (idx) => { 
     if (turnPhase !== 'draw' || !isMyTurn) return
     setLastAction('drawDiscard')
-    const cardsToTake = discard.slice(idx); const remaining = discard.slice(0, idx); const newPlayers = [...players]; newPlayers[myPlayerIndex] = { ...newPlayers[myPlayerIndex], hand: [...newPlayers[myPlayerIndex].hand, ...cardsToTake] }; const newLog = [...actionLog, { player: players[myPlayerIndex].name, action: cardsToTake.length > 1 ? `+${cardsToTake.length}` : cardsToTake[0].value + cardsToTake[0].suit, icon: '📤' }]; setDiscard(remaining); setPlayers(newPlayers); setTurnPhase('play'); setActionLog(newLog); setMessage('Pose ou défausse'); if (gameMode === 'online') await syncToFirebase({ discard: remaining, players: newPlayers, turnPhase: 'play', actionLog: newLog }) 
+    const cardsToTake = discard.slice(idx); const remaining = discard.slice(0, idx); const newPlayers = [...players]; newPlayers[myPlayerIndex] = { ...newPlayers[myPlayerIndex], hand: [...newPlayers[myPlayerIndex].hand, ...cardsToTake] }; const newLog = [...actionLog, { player: players[myPlayerIndex].name, action: cardsToTake.length > 1 ? `+${cardsToTake.length}` : cardsToTake[0].value + cardsToTake[0].suit, icon: '+' }]; setDiscard(remaining); setPlayers(newPlayers); setTurnPhase('play'); setActionLog(newLog); setMessage('Pose ou défausse'); if (gameMode === 'online') await syncToFirebase({ discard: remaining, players: newPlayers, turnPhase: 'play', actionLog: newLog }) 
   }
 
   const toggleCard = (card) => { if (!isMyTurn || turnPhase !== 'play') return; setSelectedCards(prev => prev.some(c => c.id === card.id) ? prev.filter(c => c.id !== card.id) : [...prev, card]) }
@@ -424,19 +424,19 @@ export default function App() {
   const createMeld = async () => { 
     if (selectedCards.length < 3 || !isValidMeld(selectedCards)) { setMessage('Combinaison invalide!'); setLastAction('error'); return }
     setLastAction('meld')
-    const newMelds = [...melds, { owner: myPlayerIndex, cards: [...selectedCards] }]; const newPlayers = [...players]; newPlayers[myPlayerIndex] = { ...newPlayers[myPlayerIndex], hand: newPlayers[myPlayerIndex].hand.filter(c => !selectedCards.some(s => s.id === c.id)) }; const newLog = [...actionLog, { player: players[myPlayerIndex].name, action: 'pose', icon: '🃏' }]; setMelds(newMelds); setPlayers(newPlayers); setSelectedCards([]); setActionLog(newLog); if (newPlayers[myPlayerIndex].hand.length === 0) await endRound(newPlayers, newMelds, newLog); else if (gameMode === 'online') await syncToFirebase({ melds: newMelds, players: newPlayers, actionLog: newLog }) 
+    const newMelds = [...melds, { owner: myPlayerIndex, cards: [...selectedCards] }]; const newPlayers = [...players]; newPlayers[myPlayerIndex] = { ...newPlayers[myPlayerIndex], hand: newPlayers[myPlayerIndex].hand.filter(c => !selectedCards.some(s => s.id === c.id)) }; const newLog = [...actionLog, { player: players[myPlayerIndex].name, action: 'pose', icon: '*' }]; setMelds(newMelds); setPlayers(newPlayers); setSelectedCards([]); setActionLog(newLog); if (newPlayers[myPlayerIndex].hand.length === 0) await endRound(newPlayers, newMelds, newLog); else if (gameMode === 'online') await syncToFirebase({ melds: newMelds, players: newPlayers, actionLog: newLog }) 
   }
 
   const addToMeld = async (meldIdx) => { 
     if (selectedCards.length !== 1) return; const card = selectedCards[0]; const meld = melds[meldIdx]; if (!canAddToMeld(meld.cards, card)) return
     setLastAction('addMeld')
-    const newMelds = [...melds]; newMelds[meldIdx] = { ...meld, cards: [...meld.cards, card] }; const newPlayers = [...players]; newPlayers[myPlayerIndex] = { ...newPlayers[myPlayerIndex], hand: newPlayers[myPlayerIndex].hand.filter(c => c.id !== card.id) }; const newLog = [...actionLog, { player: players[myPlayerIndex].name, action: '+' + card.value, icon: '➕' }]; setMelds(newMelds); setPlayers(newPlayers); setSelectedCards([]); setActionLog(newLog); if (newPlayers[myPlayerIndex].hand.length === 0) await endRound(newPlayers, newMelds, newLog); else if (gameMode === 'online') await syncToFirebase({ melds: newMelds, players: newPlayers, actionLog: newLog }) 
+    const newMelds = [...melds]; newMelds[meldIdx] = { ...meld, cards: [...meld.cards, card] }; const newPlayers = [...players]; newPlayers[myPlayerIndex] = { ...newPlayers[myPlayerIndex], hand: newPlayers[myPlayerIndex].hand.filter(c => c.id !== card.id) }; const newLog = [...actionLog, { player: players[myPlayerIndex].name, action: '+' + card.value, icon: '+' }]; setMelds(newMelds); setPlayers(newPlayers); setSelectedCards([]); setActionLog(newLog); if (newPlayers[myPlayerIndex].hand.length === 0) await endRound(newPlayers, newMelds, newLog); else if (gameMode === 'online') await syncToFirebase({ melds: newMelds, players: newPlayers, actionLog: newLog }) 
   }
 
   const discardCard = async () => { 
     if (selectedCards.length !== 1) return; const card = selectedCards[0]
     setLastAction('discard')
-    const newPlayers = [...players]; newPlayers[myPlayerIndex] = { ...newPlayers[myPlayerIndex], hand: newPlayers[myPlayerIndex].hand.filter(c => c.id !== card.id) }; const newDiscard = [...discard, card]; const newLog = [...actionLog, { player: players[myPlayerIndex].name, action: card.value + card.suit, icon: '🗑️' }]; setPlayers(newPlayers); setDiscard(newDiscard); setSelectedCards([]); setActionLog(newLog); if (newPlayers[myPlayerIndex].hand.length === 0) await endRound(newPlayers, melds, newLog); else { const next = (currentPlayer + 1) % players.length; const msg = `Tour de ${newPlayers[next].name}`; setCurrentPlayer(next); setTurnPhase('draw'); setMessage(msg); if (gameMode === 'online') await syncToFirebase({ players: newPlayers, discard: newDiscard, currentPlayer: next, turnPhase: 'draw', actionLog: newLog, message: msg }) } 
+    const newPlayers = [...players]; newPlayers[myPlayerIndex] = { ...newPlayers[myPlayerIndex], hand: newPlayers[myPlayerIndex].hand.filter(c => c.id !== card.id) }; const newDiscard = [...discard, card]; const newLog = [...actionLog, { player: players[myPlayerIndex].name, action: card.value + card.suit, icon: '-' }]; setPlayers(newPlayers); setDiscard(newDiscard); setSelectedCards([]); setActionLog(newLog); if (newPlayers[myPlayerIndex].hand.length === 0) await endRound(newPlayers, melds, newLog); else { const next = (currentPlayer + 1) % players.length; const msg = `Tour de ${newPlayers[next].name}`; setCurrentPlayer(next); setTurnPhase('draw'); setMessage(msg); if (gameMode === 'online') await syncToFirebase({ players: newPlayers, discard: newDiscard, currentPlayer: next, turnPhase: 'draw', actionLog: newLog, message: msg }) } 
   }
 
   const endRound = async (finalPlayers, finalMelds, newLog) => { const newScores = [...scores]; finalPlayers.forEach((p, i) => { const mPts = finalMelds.filter(m => m.owner === i).reduce((s, m) => s + m.cards.reduce((ss, c) => ss + getCardPoints(c), 0), 0); newScores[i] += mPts - p.hand.reduce((s, c) => s + getCardPoints(c), 0) }); setScores(newScores); const newPhase = newScores.some(s => s >= 500) ? 'gameEnd' : 'roundEnd'; setGamePhase(newPhase); if (gameMode === 'online') await syncToFirebase({ scores: newScores, gamePhase: newPhase, actionLog: newLog }) }
@@ -445,9 +445,9 @@ export default function App() {
     if (gamePhase !== 'playing' || gameMode !== 'solo' || !players[currentPlayer]?.isAI) return
     const timer = setTimeout(() => {
       const st = stateRef.current; let newPlayers = JSON.parse(JSON.stringify(st.players)); let newDeck = [...st.deck]; let newDiscard = [...st.discard]; let newMelds = JSON.parse(JSON.stringify(st.melds)); const logs = []; const pName = newPlayers[currentPlayer].name
-      if (newDeck.length > 0) { newPlayers[currentPlayer].hand.push(newDeck.pop()); logs.push({ player: pName, action: 'pioche', icon: '📥' }) }
-      let found = true, iter = 0; while (found && iter < 5) { found = false; iter++; const hand = newPlayers[currentPlayer].hand; for (let i = 0; i < hand.length && !found; i++) for (let j = i + 1; j < hand.length && !found; j++) for (let k = j + 1; k < hand.length && !found; k++) { const tryM = [hand[i], hand[j], hand[k]]; if (isValidMeld(tryM)) { newMelds.push({ owner: currentPlayer, cards: tryM }); newPlayers[currentPlayer].hand = hand.filter(c => !tryM.some(m => m.id === c.id)); logs.push({ player: pName, action: 'pose', icon: '🃏' }); found = true } } }
-      if (newPlayers[currentPlayer].hand.length > 0) { const sorted = [...newPlayers[currentPlayer].hand].sort((a, b) => getCardPoints(b) - getCardPoints(a)); const disc = sorted[0]; newPlayers[currentPlayer].hand = newPlayers[currentPlayer].hand.filter(c => c.id !== disc.id); newDiscard.push(disc); logs.push({ player: pName, action: disc.value + disc.suit, icon: '🗑️' }) }
+      if (newDeck.length > 0) { newPlayers[currentPlayer].hand.push(newDeck.pop()); logs.push({ player: pName, action: 'pioche', icon: '+' }) }
+      let found = true, iter = 0; while (found && iter < 5) { found = false; iter++; const hand = newPlayers[currentPlayer].hand; for (let i = 0; i < hand.length && !found; i++) for (let j = i + 1; j < hand.length && !found; j++) for (let k = j + 1; k < hand.length && !found; k++) { const tryM = [hand[i], hand[j], hand[k]]; if (isValidMeld(tryM)) { newMelds.push({ owner: currentPlayer, cards: tryM }); newPlayers[currentPlayer].hand = hand.filter(c => !tryM.some(m => m.id === c.id)); logs.push({ player: pName, action: 'pose', icon: '*' }); found = true } } }
+      if (newPlayers[currentPlayer].hand.length > 0) { const sorted = [...newPlayers[currentPlayer].hand].sort((a, b) => getCardPoints(b) - getCardPoints(a)); const disc = sorted[0]; newPlayers[currentPlayer].hand = newPlayers[currentPlayer].hand.filter(c => c.id !== disc.id); newDiscard.push(disc); logs.push({ player: pName, action: disc.value + disc.suit, icon: '-' }) }
       setPlayers(newPlayers); setDeck(newDeck); setDiscard(newDiscard); setMelds(newMelds); setActionLog(prev => [...prev, ...logs])
       if (newPlayers[currentPlayer].hand.length === 0) { const newScores = [...st.scores]; newPlayers.forEach((p, i) => { const mPts = newMelds.filter(m => m.owner === i).reduce((s, m) => s + m.cards.reduce((ss, c) => ss + getCardPoints(c), 0), 0); newScores[i] += mPts - p.hand.reduce((s, c) => s + getCardPoints(c), 0) }); setScores(newScores); setGamePhase(newScores.some(s => s >= 500) ? 'gameEnd' : 'roundEnd') }
       else { const next = (currentPlayer + 1) % numPlayers; setCurrentPlayer(next); setTurnPhase('draw'); setMessage(next === 0 ? 'Ton tour - Pioche' : `Tour de ${newPlayers[next].name}...`) }
@@ -473,7 +473,7 @@ export default function App() {
         
         <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 20, padding: 'clamp(28px, 6vw, 44px)', border: '1px solid rgba(255,255,255,0.08)', width: 'min(90vw, 360px)', textAlign: 'center', backdropFilter: 'blur(10px)' }}>
           <div style={{ marginBottom: 28 }}>
-            <div className="bounce-in" style={{ fontSize: 64, marginBottom: 16 }}>🃏</div>
+            <div className="bounce-in" style={{ fontSize: 48, marginBottom: 16, fontWeight: 700, color: '#00ff88' }}>♠♥♦♣</div>
             <p style={{ color: '#aaa', fontSize: 16, fontWeight: 500 }}>Bienvenue !</p>
             <p style={{ color: '#666', fontSize: 13, marginTop: 8 }}>Entre ton prénom pour jouer</p>
           </div>
@@ -517,7 +517,7 @@ export default function App() {
               transition: 'all 0.2s ease',
             }}
           >
-            Jouer 🎮
+            Jouer
           </button>
           
           {message && <div className="shake" style={{ marginTop: 20, color: '#ff5757', fontSize: 13 }}>{message}</div>}
@@ -538,14 +538,14 @@ export default function App() {
         
         {/* User info */}
         <div className="slide-in" style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 28, background: 'rgba(255,255,255,0.05)', padding: '12px 20px', borderRadius: 25, border: '1px solid rgba(255,255,255,0.1)' }}>
-          <span style={{ fontSize: 24 }}>👤</span>
+          <span style={{ fontSize: 18, color: '#00ff88' }}>●</span>
           <span style={{ fontSize: 16, color: '#fff', fontWeight: 500 }}>{playerName}</span>
           <button onClick={handleLogout} className="btn-primary" style={{ padding: '6px 12px', borderRadius: 6, border: 'none', background: 'rgba(255,255,255,0.1)', color: '#888', fontSize: 11, cursor: 'pointer' }}>Changer</button>
         </div>
 
         <div style={{ display: 'flex', gap: 16, flexDirection: 'column', width: 'min(90vw, 300px)' }}>
           <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 16, padding: 20, border: '1px solid rgba(255,255,255,0.08)' }}>
-            <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>🎮 Solo vs IA</div>
+            <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>Solo vs IA</div>
             <div style={{ display: 'flex', gap: 8, marginBottom: 14, justifyContent: 'center' }}>
               {[2, 3, 4].map(n => (
                 <button 
@@ -570,7 +570,7 @@ export default function App() {
           <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 16, padding: 20, border: '1px solid rgba(255,255,255,0.08)' }}>
             <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 10 }}>
               👥 Multijoueur 
-              <span style={{ fontSize: 9, padding: '3px 8px', borderRadius: 6, background: 'rgba(0,255,136,0.15)', color: '#00ff88' }}>● ONLINE</span>
+              <span style={{ fontSize: 9, padding: '3px 8px', borderRadius: 6, background: 'rgba(0,255,136,0.15)', color: '#00ff88' }}>ONLINE</span>
             </div>
             <button onClick={createRoom} className="btn-primary" style={{ width: '100%', padding: '12px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg, #00ff88, #00d4ff)', color: '#000', fontSize: 14, fontWeight: 600, cursor: 'pointer', marginBottom: 10 }}>Créer une partie</button>
             <div style={{ display: 'flex', gap: 8 }}>
@@ -601,7 +601,7 @@ export default function App() {
           <div style={{ fontSize: 12, color: '#666', marginBottom: 12, fontWeight: 500 }}>Joueurs ({players.length}/4)</div>
           {players.map((p, i) => (
             <div key={p.id} className="slide-in" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.08)', animationDelay: `${i * 100}ms` }}>
-              <span style={{ fontSize: 20 }}>{p.isHost ? '👑' : '👤'}</span>
+              <span style={{ fontSize: 14, color: p.isHost ? '#00ff88' : '#666' }}>{p.isHost ? '★' : '•'}</span>
               <span style={{ color: p.id === playerId ? '#00ff88' : '#fff', fontSize: 14, fontWeight: 500 }}>{p.name}</span>
               {p.id === playerId && <span style={{ fontSize: 10, color: '#666' }}>(toi)</span>}
             </div>
@@ -624,12 +624,12 @@ export default function App() {
         <GlobalStyles />
         <div style={{ height: '100vh', background: 'linear-gradient(135deg, #0a0a0f, #1a1a2e)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontFamily: 'Space Grotesk, system-ui', color: '#fff', padding: 20 }}>
           <h2 className="bounce-in" style={{ fontSize: 28, marginBottom: 20, color: gamePhase === 'gameEnd' ? '#00ff88' : '#fff', fontWeight: 600 }}>
-            {gamePhase === 'gameEnd' ? '🏆 Partie terminée!' : `Fin de la manche ${roundNumber}`}
+            {gamePhase === 'gameEnd' ? 'Partie terminée!' : `Fin de la manche ${roundNumber}`}
           </h2>
           <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 16, padding: 24, marginBottom: 24, minWidth: 280, border: '1px solid rgba(255,255,255,0.08)' }}>
             {players.map((p, i) => (
               <div key={i} className="slide-in" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid rgba(255,255,255,0.08)', color: i === winner ? '#00ff88' : '#fff', fontSize: 15, animationDelay: `${i * 100}ms` }}>
-                <span style={{ fontWeight: i === winner ? 600 : 400 }}>{p.name} {i === winner && '👑'}</span>
+                <span style={{ fontWeight: i === winner ? 600 : 400 }}>{p.name} {i === winner && '★'}</span>
                 <span style={{ fontWeight: 600, fontSize: 18 }}>{scores[i]} pts</span>
               </div>
             ))}
@@ -726,7 +726,7 @@ export default function App() {
                 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
                     <span style={{ fontSize: 12, fontWeight: 600, color: isActive ? '#00ff88' : '#fff' }}>{p.name}</span>
-                    <span style={{ fontSize: 11, color: '#666', background: 'rgba(255,255,255,0.05)', padding: '2px 6px', borderRadius: 4 }}>{p.hand?.length || 0} 🃏</span>
+                    <span style={{ fontSize: 11, color: '#666', background: 'rgba(255,255,255,0.05)', padding: '2px 6px', borderRadius: 4 }}>{p.hand?.length || 0}</span>
                   </div>
                   <div style={{ display: 'flex', marginBottom: 6 }}>
                     {(p.hand || []).slice(0, 5).map((_, i) => <Card key={i} faceDown mini style={{ marginLeft: i > 0 ? -16 : 0 }} />)}
@@ -772,7 +772,7 @@ export default function App() {
               display: 'none', // Hidden on mobile
               '@media (min-width: 768px)': { display: 'block' }
             }}>
-              <div style={{ fontSize: 10, color: '#666', marginBottom: 8, fontWeight: 600, borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: 6 }}>📋 Actions</div>
+              <div style={{ fontSize: 10, color: '#666', marginBottom: 8, fontWeight: 600, borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: 6 }}>Actions</div>
               {actionLog.slice(-10).map((log, i) => (
                 <div key={i} className="slide-in" style={{ 
                   fontSize: 9, 
@@ -929,7 +929,7 @@ export default function App() {
                   transition: 'all 0.2s ease'
                 }}
               >
-                🃏 Poser
+                Poser
               </button>
               <button 
                 onClick={discardCard} 
@@ -946,7 +946,7 @@ export default function App() {
                   cursor: selectedCards.length === 1 ? 'pointer' : 'not-allowed'
                 }}
               >
-                🗑️ Défausser
+                Défausser
               </button>
               <button 
                 onClick={() => setSelectedCards([])} 
