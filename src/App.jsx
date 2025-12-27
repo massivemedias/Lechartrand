@@ -228,7 +228,7 @@ const Card = ({ card, selected, onClick, faceDown, small, mini, disabled, style,
           <div style={{ 
             fontSize: sizes.corner - 2, 
             color: isFrime ? '#a78bfa' : (isRed ? '#dc2626' : '#333'),
-            marginTop: -1
+            marginTop: 1
           }}>
             {card.suit}
           </div>
