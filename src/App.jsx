@@ -141,24 +141,24 @@ const Card = ({ card, selected, onClick, faceDown, small, mini, disabled, style,
   const isRed = card?.suit === '♥' || card?.suit === '♦' || card?.suit === 'R'
   const isFrime = card?.isFrime
   
-  // Mobile-first responsive sizes
+  // Cartes carrées compactes
   const sizes = mini 
-    ? { w: 28, h: 42, font: 10, corner: 7, frime: 4 }
+    ? { s: 26, font: 12, corner: 8 }
     : small 
-      ? { w: 42, h: 63, font: 15, corner: 9, frime: 5 }
-      : { w: 56, h: 84, font: 20, corner: 11, frime: 6 }
+      ? { s: 36, font: 16, corner: 10 }
+      : { s: 44, font: 20, corner: 12 }
   
   const baseStyle = {
-    width: sizes.w,
-    height: sizes.h,
-    borderRadius: 6,
+    width: sizes.s,
+    height: sizes.s,
+    borderRadius: 8,
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
     flexShrink: 0,
-    transition: 'all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)',
+    transition: 'all 0.15s ease',
     cursor: disabled ? 'default' : 'pointer',
     animationDelay: `${delay}ms`,
     ...style
@@ -172,14 +172,14 @@ const Card = ({ card, selected, onClick, faceDown, small, mini, disabled, style,
           ...baseStyle,
           background: 'linear-gradient(145deg, #1e1e3f, #0f0f23)',
           border: '2px solid #3d3d5c',
-          boxShadow: '0 4px 15px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1)'
+          boxShadow: '0 2px 8px rgba(0,0,0,0.3)'
         }}
       >
         <div style={{ 
-          width: sizes.w - 12, 
-          height: sizes.h - 16,
+          width: sizes.s - 10, 
+          height: sizes.s - 10,
           background: 'repeating-linear-gradient(45deg, #2a2a4a, #2a2a4a 2px, #1a1a3a 2px, #1a1a3a 4px)',
-          borderRadius: 3,
+          borderRadius: 4,
           border: '1px solid #3d3d5c'
         }} />
       </div>
@@ -194,26 +194,26 @@ const Card = ({ card, selected, onClick, faceDown, small, mini, disabled, style,
         ...baseStyle,
         background: isFrime 
           ? 'linear-gradient(145deg, #2d1f4d, #1a1033)' 
-          : 'linear-gradient(145deg, #ffffff, #f0f0f0)',
+          : '#fff',
         border: selected 
-          ? '3px solid #00ff88' 
+          ? '2px solid #00ff88' 
           : isFrime 
             ? '2px solid #8b5cf6' 
-            : '2px solid #d0d0d0',
+            : '1px solid #ccc',
         boxShadow: selected 
-          ? '0 8px 25px rgba(0,255,136,0.4), 0 0 0 2px rgba(0,255,136,0.2)' 
-          : '0 4px 12px rgba(0,0,0,0.15)',
-        transform: selected ? 'translateY(-8px) scale(1.02)' : 'none',
+          ? '0 4px 12px rgba(0,255,136,0.4)' 
+          : '0 2px 6px rgba(0,0,0,0.1)',
+        transform: selected ? 'translateY(-4px) scale(1.05)' : 'none',
       }}
     >
       {card.value === 'JOKER' ? (
-        <div style={{ fontSize: sizes.font + 4, color: card.suit === 'R' ? '#ef4444' : '#666' }}>★</div>
+        <div style={{ fontSize: sizes.font, color: card.suit === 'R' ? '#ef4444' : '#666', fontWeight: 'bold' }}>★</div>
       ) : (
         <>
           <div style={{ 
             position: 'absolute', 
-            top: 3, 
-            left: 4, 
+            top: 2, 
+            left: 3, 
             fontSize: sizes.corner, 
             fontWeight: 'bold', 
             color: isFrime ? '#a78bfa' : (isRed ? '#dc2626' : '#1f2937'),
@@ -224,35 +224,12 @@ const Card = ({ card, selected, onClick, faceDown, small, mini, disabled, style,
           <div style={{ 
             fontSize: sizes.font, 
             color: isFrime ? '#a78bfa' : (isRed ? '#dc2626' : '#333'),
-            fontWeight: '500'
+            fontWeight: 'bold',
+            marginTop: 4
           }}>
             {card.suit}
           </div>
-          <div style={{ 
-            position: 'absolute', 
-            bottom: 3, 
-            right: 4, 
-            fontSize: sizes.corner, 
-            fontWeight: 'bold', 
-            color: isFrime ? '#a78bfa' : (isRed ? '#dc2626' : '#1f2937'),
-            transform: 'rotate(180deg)',
-            lineHeight: 1
-          }}>
-            {card.value}
-          </div>
         </>
-      )}
-      {isFrime && (
-        <div style={{ 
-          position: 'absolute', 
-          bottom: 1, 
-          fontSize: sizes.frime, 
-          color: '#a78bfa', 
-          fontWeight: 'bold',
-          letterSpacing: 0.5
-        }}>
-          FRIME
-        </div>
       )}
   </div>
   )
@@ -272,19 +249,19 @@ const DiscardPile = ({ cards, canClick, onClickCard }) => {
       ref={scrollRef}
       style={{ 
         display: 'flex', 
-        gap: 4, 
+        gap: 3, 
         overflowX: 'auto',
         overflowY: 'hidden',
-        padding: '8px 10px',
+        padding: '6px 8px',
         background: 'rgba(139,92,246,0.1)',
         borderRadius: 8,
         border: '1px solid rgba(139,92,246,0.3)',
-        minHeight: 60,
+        minHeight: 40,
         alignItems: 'center'
       }}
     >
       {cards.length === 0 ? (
-        <span style={{ color: '#666', fontSize: 12, fontStyle: 'italic' }}>Vide</span>
+        <span style={{ color: '#666', fontSize: 11, fontStyle: 'italic' }}>Vide</span>
       ) : (
         cards.map((card, i) => (
           <Card 
@@ -782,11 +759,19 @@ export default function App() {
             </div>
           </div>
 
-          {/* My melds */}
+        </div>
+
+        {/* Player's hand area with melds */}
+        <div style={{ 
+          background: 'rgba(0,0,0,0.4)', 
+          borderTop: isMyTurn ? '2px solid rgba(0,255,136,0.5)' : '1px solid rgba(255,255,255,0.08)',
+          padding: '10px 10px 14px'
+        }}>
+          {/* My melds - proche de la main */}
           {myMelds.length > 0 && (
-            <div>
-              <div style={{ fontSize: 11, color: '#888', marginBottom: 6, fontWeight: 600, textAlign: 'center' }}>Tes combinaisons</div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'center' }}>
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ fontSize: 10, color: '#666', marginBottom: 4, fontWeight: 600, textAlign: 'center' }}>Tes combinaisons</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, justifyContent: 'center' }}>
                 {myMelds.map((m, mi) => (
                   <div 
                     key={mi} 
@@ -796,27 +781,19 @@ export default function App() {
                       alignItems: 'center', 
                       background: 'rgba(0,255,136,0.08)', 
                       borderRadius: 6, 
-                      padding: 4, 
+                      padding: 3, 
                       border: selectedCards.length === 1 && canAddToMeld(m.cards, selectedCards[0]) ? '2px dashed #00ff88' : '1px solid rgba(0,255,136,0.2)',
                       cursor: selectedCards.length === 1 && canAddToMeld(m.cards, selectedCards[0]) ? 'pointer' : 'default' 
                     }} 
                     onClick={() => selectedCards.length === 1 && canAddToMeld(m.cards, selectedCards[0]) && addToMeld(melds.indexOf(m))}
                   >
-                    {m.cards.map((c, ci) => <Card key={c.id} card={c} mini style={{ marginLeft: ci > 0 ? -10 : 0 }} disabled />)}
-                    <div style={{ marginLeft: 6, fontSize: 12, color: '#00ff88', fontWeight: 700 }}>{m.cards.reduce((s, c) => s + getCardPoints(c), 0)}p</div>
+                    {m.cards.map((c, ci) => <Card key={c.id} card={c} mini style={{ marginLeft: ci > 0 ? -8 : 0 }} disabled />)}
+                    <div style={{ marginLeft: 4, fontSize: 11, color: '#00ff88', fontWeight: 700 }}>{m.cards.reduce((s, c) => s + getCardPoints(c), 0)}p</div>
                   </div>
                 ))}
               </div>
             </div>
           )}
-        </div>
-
-        {/* Player's hand area */}
-        <div style={{ 
-          background: 'rgba(0,0,0,0.4)', 
-          borderTop: isMyTurn ? '2px solid rgba(0,255,136,0.5)' : '1px solid rgba(255,255,255,0.08)',
-          padding: '10px 10px 14px'
-        }}>
           {/* Hand header */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, flexWrap: 'wrap', gap: 6 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
