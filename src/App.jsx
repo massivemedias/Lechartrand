@@ -417,20 +417,9 @@ export default function App() {
   }
 
   const discardCard = async () => { 
-    if (selectedCards.length !== 1) return
-    const card = selectedCards[0]
-    const myHand = players[myPlayerIndex]?.hand || []
-    
-    // Cannot discard last card - must end by melding
-    if (myHand.length === 1) {
-      setMessage('Tu ne peux pas défausser ta dernière carte! Pose-la sur une combinaison.')
-      setLastAction('error')
-      return
-    }
-    
+    if (selectedCards.length !== 1) return; const card = selectedCards[0]
     setLastAction('discard'); setLastDrawnCardId(null)
-    const newPlayers = [...players]; newPlayers[myPlayerIndex] = { ...newPlayers[myPlayerIndex], hand: newPlayers[myPlayerIndex].hand.filter(c => c.id !== card.id) }; const newDiscard = [...discard, card]; const newLog = [...actionLog, { player: players[myPlayerIndex].name, action: card.value + card.suit, icon: '-' }]; setPlayers(newPlayers); setDiscard(newDiscard); setSelectedCards([]); setActionLog(newLog)
-    const next = (currentPlayer + 1) % players.length; const msg = `Tour de ${newPlayers[next].name}`; setCurrentPlayer(next); setTurnPhase('draw'); setMessage(msg); if (gameMode === 'online') await syncToFirebase({ players: newPlayers, discard: newDiscard, currentPlayer: next, turnPhase: 'draw', actionLog: newLog, message: msg })
+    const newPlayers = [...players]; newPlayers[myPlayerIndex] = { ...newPlayers[myPlayerIndex], hand: newPlayers[myPlayerIndex].hand.filter(c => c.id !== card.id) }; const newDiscard = [...discard, card]; const newLog = [...actionLog, { player: players[myPlayerIndex].name, action: card.value + card.suit, icon: '-' }]; setPlayers(newPlayers); setDiscard(newDiscard); setSelectedCards([]); setActionLog(newLog); if (newPlayers[myPlayerIndex].hand.length === 0) await endRound(newPlayers, melds, newLog); else { const next = (currentPlayer + 1) % players.length; const msg = `Tour de ${newPlayers[next].name}`; setCurrentPlayer(next); setTurnPhase('draw'); setMessage(msg); if (gameMode === 'online') await syncToFirebase({ players: newPlayers, discard: newDiscard, currentPlayer: next, turnPhase: 'draw', actionLog: newLog, message: msg }) } 
   }
 
   const endRound = async (finalPlayers, finalMelds, newLog) => { const newScores = [...scores]; finalPlayers.forEach((p, i) => { const mPts = finalMelds.filter(m => m.owner === i).reduce((s, m) => s + m.cards.reduce((ss, c) => ss + getCardPoints(c), 0), 0); newScores[i] += mPts - p.hand.reduce((s, c) => s + getCardPoints(c), 0) }); setScores(newScores); const newPhase = newScores.some(s => s >= 500) ? 'gameEnd' : 'roundEnd'; setGamePhase(newPhase); if (gameMode === 'online') await syncToFirebase({ scores: newScores, gamePhase: newPhase, actionLog: newLog }) }
@@ -492,34 +481,8 @@ export default function App() {
         }
       }
       
-      // Step 3: Try to add last card to existing meld if only 1 card left
-      if (newPlayers[currentPlayer].hand.length === 1) {
-        const lastCard = newPlayers[currentPlayer].hand[0]
-        let addedToMeld = false
-        
-        for (let mi = 0; mi < newMelds.length && !addedToMeld; mi++) {
-          if (canAddToMeld(newMelds[mi].cards, lastCard)) {
-            setMessage(`${pName} ajoute sa dernière carte!`)
-            newMelds[mi].cards.push(lastCard)
-            newPlayers[currentPlayer].hand = []
-            setMelds(newMelds)
-            setPlayers(newPlayers)
-            setActionLog(prev => [...prev, { player: pName, action: '+' + lastCard.value, icon: '+' }])
-            addedToMeld = true
-            await delay(2000)
-            if (cancelled) return
-          }
-        }
-        
-        // If can't add last card, must keep it and pass turn
-        if (!addedToMeld) {
-          setMessage(`${pName} ne peut pas jouer sa dernière carte`)
-          await delay(1000)
-        }
-      }
-      
-      // Step 4: Discard (only if more than 1 card)
-      if (newPlayers[currentPlayer].hand.length > 1) {
+      // Step 3: Discard
+      if (newPlayers[currentPlayer].hand.length > 0) {
         setMessage(`${pName} défausse...`)
         await delay(2000)
         if (cancelled) return
