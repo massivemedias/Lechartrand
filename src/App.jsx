@@ -859,7 +859,7 @@ export default function App() {
           {players.length >= 2 && players.length < 4 && <div style={{ padding: '10px 0', color: '#00ff88', fontSize: 13 }}>Prêt à jouer!</div>}
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
-          <button onClick={() => { setGamePhase('menu'); setRoomCode(''); firebaseService.leaveRoom(roomCode, playerId) }} className="btn-primary" style={{ padding: '12px 20px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.15)', background: 'transparent', color: '#888', fontSize: 13, cursor: 'pointer' }}>Quitter</button>
+          <button onClick={async () => { if (isHost) await firebaseService.deleteRoom(roomCode); else await firebaseService.leaveRoom(roomCode, playerId); setGamePhase('menu'); setRoomCode(''); setRoomName('') }} className="btn-primary" style={{ padding: '12px 20px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.15)', background: 'transparent', color: '#888', fontSize: 13, cursor: 'pointer' }}>{isHost ? 'Supprimer' : 'Quitter'}</button>
           {isHost && <button onClick={startMultiplayerGame} disabled={players.length < 2} className="btn-primary" style={{ padding: '12px 28px', borderRadius: 10, border: 'none', background: players.length >= 2 ? 'linear-gradient(135deg, #00ff88, #00d4ff)' : 'rgba(255,255,255,0.08)', color: players.length >= 2 ? '#000' : '#555', fontWeight: 600, fontSize: 13, cursor: players.length >= 2 ? 'pointer' : 'not-allowed' }}>Commencer</button>}
         </div>
     </div>
