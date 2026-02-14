@@ -385,6 +385,13 @@ const DiscardPile = ({ cards, canClick, onClickCard }) => {
   )
 }
 
+// Firebase stores arrays as objects with numeric keys, and drops empty arrays
+const toArray = (val) => {
+  if (Array.isArray(val)) return val
+  if (val && typeof val === 'object') return Object.values(val)
+  return []
+}
+
 // ============ MAIN APP ============
 export default function App() {
   const [gamePhase, setGamePhase] = useState('menu')
@@ -469,7 +476,15 @@ export default function App() {
     setNameInput('')
   }
 
-  useEffect(() => { return () => { if (unsubscribeRef.current) unsubscribeRef.current(); if (roomCode && playerId) firebaseService.leaveRoom(roomCode, playerId) } }, [roomCode, playerId])
+  // Subscribe to room when roomCode changes, clean up on leave/unmount
+  useEffect(() => {
+    if (!roomCode) return
+    subscribeToRoom(roomCode)
+    return () => {
+      if (unsubscribeRef.current) { unsubscribeRef.current(); unsubscribeRef.current = null }
+      if (playerIdRef.current) firebaseService.leaveRoom(roomCode, playerIdRef.current)
+    }
+  }, [roomCode, subscribeToRoom])
 
   // Subscribe to available rooms when on menu
   const roomsUnsubRef = useRef(null)
@@ -488,19 +503,39 @@ export default function App() {
       if (!roomData) { setMessage('Salon introuvable'); return }
       if (roomData.name) setRoomName(roomData.name)
       if (roomData.host) setIsHost(roomData.host === playerIdRef.current)
-      if (roomData.players) { const playerList = Object.values(roomData.players).filter(p => p.online !== false).sort((a, b) => (a.joinedAt || 0) - (b.joinedAt || 0)); if (roomData.status === 'lobby') setPlayers(playerList) }
-      if (roomData.gameState) { const gs = roomData.gameState; if (gs.players) setPlayers(gs.players); if (gs.deck) setDeck(gs.deck); if (gs.discard) setDiscard(gs.discard); if (gs.melds) setMelds(gs.melds); if (gs.scores) setScores(gs.scores); if (typeof gs.currentPlayer === 'number') setCurrentPlayer(gs.currentPlayer); if (gs.turnPhase) setTurnPhase(gs.turnPhase); if (gs.gamePhase) setGamePhase(gs.gamePhase); if (gs.actionLog) setActionLog(gs.actionLog); if (gs.message) setMessage(gs.message); if (gs.roundNumber) setRoundNumber(gs.roundNumber) }
+      if (roomData.players) {
+        const playerList = Object.values(roomData.players).filter(p => p.online !== false).sort((a, b) => (a.joinedAt || 0) - (b.joinedAt || 0))
+        if (roomData.status === 'lobby') setPlayers(playerList)
+      }
+      if (roomData.gameState) {
+        const gs = roomData.gameState
+        // Convert Firebase objects back to arrays, handle empty arrays stored as null
+        if (gs.players) {
+          const p = toArray(gs.players).map(pl => ({ ...pl, hand: toArray(pl.hand) }))
+          setPlayers(p)
+        }
+        setDeck(toArray(gs.deck))
+        setDiscard(toArray(gs.discard))
+        setMelds(toArray(gs.melds).map(m => ({ ...m, cards: toArray(m.cards) })))
+        setScores(toArray(gs.scores))
+        setActionLog(toArray(gs.actionLog))
+        if (typeof gs.currentPlayer === 'number') setCurrentPlayer(gs.currentPlayer)
+        if (gs.turnPhase) setTurnPhase(gs.turnPhase)
+        if (gs.gamePhase) setGamePhase(gs.gamePhase)
+        if (gs.message) setMessage(gs.message)
+        if (gs.roundNumber) setRoundNumber(gs.roundNumber)
+      }
       if (roomData.status === 'playing' && stateRef.current.gamePhase === 'lobby') setGamePhase('playing')
     })
   }, [])
 
   const syncToFirebase = useCallback(async (newState) => { if (gameMode !== 'online' || !roomCode) return; await firebaseService.updateGameState(roomCode, { ...stateRef.current, ...newState }) }, [gameMode, roomCode])
 
-  const createRoom = async () => { const code = generateRoomCode(); const name = roomNameInput.trim() || `Partie de ${playerName}`; const hostPlayer = { id: playerId, name: playerName || 'Hôte', isHost: true }; if (await firebaseService.createRoom(code, hostPlayer, name)) { setRoomCode(code); setRoomName(name); setGameMode('online'); setIsHost(true); setPlayers([hostPlayer]); setScores([0]); setGamePhase('lobby'); subscribeToRoom(code) } else setMessage('Erreur création') }
+  const createRoom = async () => { const code = generateRoomCode(); const name = roomNameInput.trim() || `Partie de ${playerName}`; const hostPlayer = { id: playerId, name: playerName || 'Hôte', isHost: true }; if (await firebaseService.createRoom(code, hostPlayer, name)) { setRoomCode(code); setRoomName(name); setGameMode('online'); setIsHost(true); setPlayers([hostPlayer]); setScores([0]); setGamePhase('lobby') } else setMessage('Erreur création') }
 
-  const joinRoom = async () => { if (!joinCode || joinCode.length !== 3) return; const code = joinCode; if (!await firebaseService.checkRoomExists(code)) { setMessage('Salon introuvable'); return }; const player = { id: playerId, name: playerName || 'Joueur', isHost: false }; const result = await firebaseService.joinRoom(code, player); if (result.success) { setRoomCode(code); setGameMode('online'); setIsHost(false); setGamePhase('lobby'); subscribeToRoom(code) } else setMessage('Erreur: ' + result.error) }
+  const joinRoom = async () => { if (!joinCode || joinCode.length !== 3) return; const code = joinCode; if (!await firebaseService.checkRoomExists(code)) { setMessage('Salon introuvable'); return }; const player = { id: playerId, name: playerName || 'Joueur', isHost: false }; const result = await firebaseService.joinRoom(code, player); if (result.success) { setRoomCode(code); setGameMode('online'); setIsHost(false); setGamePhase('lobby') } else setMessage('Erreur: ' + result.error) }
 
-  const joinRoomDirect = async (code) => { const player = { id: playerId, name: playerName || 'Joueur', isHost: false }; const result = await firebaseService.joinRoom(code, player); if (result.success) { setRoomCode(code); setGameMode('online'); setIsHost(false); setGamePhase('lobby'); subscribeToRoom(code) } else setMessage('Erreur: ' + result.error) }
+  const joinRoomDirect = async (code) => { const player = { id: playerId, name: playerName || 'Joueur', isHost: false }; const result = await firebaseService.joinRoom(code, player); if (result.success) { setRoomCode(code); setGameMode('online'); setIsHost(false); setGamePhase('lobby') } else setMessage('Erreur: ' + result.error) }
 
   const startSoloGame = (resetScores = true) => { setGameMode('solo'); const numDecks = numPlayers === 4 ? 2 : 1; const newDeck = createDeck(numDecks, Date.now()); const newPlayers = []; for (let i = 0; i < numPlayers; i++) newPlayers.push({ id: i === 0 ? playerId : `ai_${i}`, name: i === 0 ? (playerName || 'Toi') : `Ordi ${i}`, hand: newDeck.splice(0, 9), isHuman: i === 0, isAI: i !== 0 }); setPlayers(newPlayers); setDeck(newDeck); setDiscard(newDeck.splice(0, 1)); setMelds([]); setCurrentPlayer(0); setTurnPhase('draw'); setSelectedCards([]); setGamePhase('playing'); setMessage('Ton tour - Pioche'); setActionLog([]); if (resetScores) { setScores(new Array(numPlayers).fill(0)); setRoundNumber(1) } else { setRoundNumber(r => r + 1) } }
 
