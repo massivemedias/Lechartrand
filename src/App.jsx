@@ -420,6 +420,7 @@ export default function App() {
   const [lastAction, setLastAction] = useState(null)
   const [nameInput, setNameInput] = useState('')
   const [drawnCardIds, setDrawnCardIds] = useState([])
+  const [showRules, setShowRules] = useState(false)
   const [roomName, setRoomName] = useState('')
   const [roomNameInput, setRoomNameInput] = useState('')
   const [availableRooms, setAvailableRooms] = useState([])
@@ -729,13 +730,92 @@ export default function App() {
 
   const copyRoomLink = () => { navigator.clipboard.writeText(`${window.location.origin}${window.location.pathname}?room=${roomCode}`); setMessage('Lien copié!'); setTimeout(() => setMessage(''), 2000) }
 
+  // ============ RULES POPUP ============
+  const RulesPopup = () => showRules ? (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={() => setShowRules(false)}>
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(4px)' }} />
+      <div onClick={e => e.stopPropagation()} style={{ position: 'relative', background: 'linear-gradient(135deg, #1a1a2e, #0f0f23)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 20, width: 'min(92vw, 480px)', maxHeight: '85vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px 16px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+          <h2 style={{ fontSize: 20, fontWeight: 700, background: 'linear-gradient(135deg, #00ff88, #00d4ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Règles du Rami 500</h2>
+          <button onClick={() => setShowRules(false)} style={{ width: 32, height: 32, borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,0.1)', color: '#888', fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+        </div>
+        <div style={{ padding: '16px 24px 24px', overflowY: 'auto', fontSize: 14, lineHeight: 1.7, color: '#ccc' }}>
+          <Section t="Objectif">Le premier joueur à atteindre <b style={{color:'#00ff88'}}>500 points</b> remporte la partie. Les points s'accumulent à travers plusieurs manches.</Section>
+
+          <Section t="Distribution">Chaque joueur reçoit <b style={{color:'#fff'}}>9 cartes</b>. Le reste forme la pioche. La première carte est retournée pour former la défausse.</Section>
+
+          <Section t="Tour de jeu">Chaque tour se déroule en 3 étapes :
+            <ol style={{ paddingLeft: 20, marginTop: 8 }}>
+              <li><b style={{color:'#fff'}}>Piocher</b> — Prendre la carte du dessus de la pioche OU une carte de la défausse (+ toutes les cartes au-dessus d'elle)</li>
+              <li><b style={{color:'#fff'}}>Poser</b> (optionnel) — Déposer des combinaisons ou ajouter des cartes aux combinaisons existantes</li>
+              <li><b style={{color:'#fff'}}>Défausser</b> — Se séparer d'une carte de sa main sur la défausse</li>
+            </ol>
+          </Section>
+
+          <Section t="Combinaisons valides">
+            <div style={{ marginBottom: 8 }}><b style={{color:'#fff'}}>Brelan / Carré :</b> 3 ou plus cartes de même valeur mais de couleurs différentes</div>
+            <div style={{ display: 'flex', gap: 4, marginBottom: 12 }}>
+              <MiniEx>7♠</MiniEx><MiniEx>7♥</MiniEx><MiniEx>7♦</MiniEx>
+            </div>
+            <div style={{ marginBottom: 8 }}><b style={{color:'#fff'}}>Suite :</b> 3+ cartes consécutives de la même couleur</div>
+            <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
+              <MiniEx>4♥</MiniEx><MiniEx>5♥</MiniEx><MiniEx>6♥</MiniEx><MiniEx>7♥</MiniEx>
+            </div>
+          </Section>
+
+          <Section t="Les 2 (Frimes / Jokers)">Les <b style={{color:'#a78bfa'}}>2 de chaque couleur</b> et les <b style={{color:'#a78bfa'}}>Jokers</b> sont des cartes spéciales (frimes). Ils peuvent remplacer n'importe quelle carte dans une combinaison. Chaque combinaison peut contenir au maximum 1 frime.</Section>
+
+          <Section t="Ajouter à une combinaison">Tu peux ajouter une carte à n'importe quelle combinaison sur la table (la tienne ou celle d'un adversaire). Si tu ajoutes à la combinaison d'un adversaire, les <b style={{color:'#00ff88'}}>points comptent pour toi</b>.</Section>
+
+          <Section t="Fin de manche">La manche se termine quand un joueur n'a plus de cartes en main (en posant ou défaussant sa dernière carte).</Section>
+
+          <Section t="Calcul des points">
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '4px 16px', marginTop: 8 }}>
+              <span>As</span><b style={{color:'#00ff88'}}>15 pts</b>
+              <span>Figures (J, Q, K)</span><b style={{color:'#00ff88'}}>10 pts</b>
+              <span>Cartes 3 à 10</span><b style={{color:'#00ff88'}}>5 pts</b>
+              <span>Joker / 2 (frime)</span><b style={{color:'#00ff88'}}>20 pts</b>
+            </div>
+            <div style={{ marginTop: 12, padding: 12, background: 'rgba(255,255,255,0.05)', borderRadius: 10, fontSize: 13 }}>
+              <b style={{color:'#fff'}}>Score = cartes posées − cartes en main</b><br/>
+              Les cartes posées rapportent des points, les cartes restantes en main sont soustraites.
+            </div>
+          </Section>
+
+          <Section t="Piocher dans la défausse">Tu peux prendre n'importe quelle carte visible de la défausse, mais tu dois aussi prendre <b style={{color:'#fff'}}>toutes les cartes au-dessus</b>. La carte choisie doit être utilisée immédiatement dans une combinaison (posée ou ajoutée).</Section>
+
+          <div style={{ textAlign: 'center', padding: '16px 0 8px', color: '#666', fontSize: 12 }}>Bonne partie ! ♠♥♦♣</div>
+        </div>
+      </div>
+    </div>
+  ) : null
+
+  const Section = ({ t, children }) => (
+    <div style={{ marginBottom: 20 }}>
+      <div style={{ fontSize: 15, fontWeight: 600, color: '#fff', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#00ff88', flexShrink: 0 }} />{t}
+      </div>
+      <div style={{ paddingLeft: 14 }}>{children}</div>
+    </div>
+  )
+
+  const MiniEx = ({ children }) => (
+    <span style={{ padding: '3px 8px', borderRadius: 6, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', fontSize: 13, fontWeight: 600, color: '#fff' }}>{children}</span>
+  )
+
+  const RulesButton = () => (
+    <button onClick={() => setShowRules(true)} style={{ width: 36, height: 36, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.05)', color: '#888', fontSize: 16, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'serif', fontStyle: 'italic', transition: 'all 0.2s' }}>i</button>
+  )
+
   // ============ RENDER ============
   
   // LOGIN - Simple name entry
   if (!isLoggedIn && gamePhase === 'menu') return (
     <>
       <GlobalStyles />
+      <RulesPopup />
       <div style={{ height: '100vh', background: 'linear-gradient(135deg, #0a0a0f 0%, #1a1a2e 50%, #0f0f23 100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontFamily: 'Space Grotesk, system-ui', color: '#fff', padding: 20 }}>
+        <div style={{ position: 'absolute', top: 16, right: 16 }}><RulesButton /></div>
         <div style={{ marginBottom: 50, textAlign: 'center' }}>
           <h1 style={{ fontSize: 'clamp(36px, 10vw, 64px)', background: 'linear-gradient(135deg, #00ff88, #00d4ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', marginBottom: 8, fontWeight: 700 }}>LE CHARTRAND</h1>
           <p style={{ color: '#666', fontSize: 'clamp(14px, 3vw, 18px)', letterSpacing: 2 }}>RAMI 500</p>
@@ -802,7 +882,9 @@ export default function App() {
   if (gamePhase === 'menu') return (
     <>
       <GlobalStyles />
+      <RulesPopup />
       <div style={{ height: '100vh', background: 'linear-gradient(135deg, #0a0a0f 0%, #1a1a2e 50%, #0f0f23 100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontFamily: 'Space Grotesk, system-ui', color: '#fff', padding: 20 }}>
+        <div style={{ position: 'absolute', top: 16, right: 16 }}><RulesButton /></div>
         <h1 style={{ fontSize: 'clamp(32px, 8vw, 52px)', background: 'linear-gradient(135deg, #00ff88, #00d4ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', marginBottom: 4, fontWeight: 700 }}>LE CHARTRAND</h1>
         <p style={{ color: '#666', marginBottom: 24, fontSize: 13, letterSpacing: 2 }}>RAMI 500</p>
         
@@ -877,7 +959,9 @@ export default function App() {
   if (gamePhase === 'lobby') return (
     <>
       <GlobalStyles />
+      <RulesPopup />
       <div style={{ height: '100vh', background: 'linear-gradient(135deg, #0a0a0f, #1a1a2e)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontFamily: 'Space Grotesk, system-ui', color: '#fff', padding: 20 }}>
+        <div style={{ position: 'absolute', top: 16, right: 16 }}><RulesButton /></div>
         <h2 style={{ fontSize: 22, marginBottom: 6, fontWeight: 600, color: '#00ff88' }}>{roomName || 'Salon de jeu'}</h2>
         <div className="glow" style={{ background: 'rgba(139,92,246,0.15)', padding: '10px 20px', borderRadius: 12, marginBottom: 20, display: 'flex', alignItems: 'center', gap: 14, border: '1px solid rgba(139,92,246,0.3)' }}>
           <span style={{ fontSize: 12, color: '#888' }}>Code :</span>
@@ -951,19 +1035,20 @@ export default function App() {
   return (
     <>
       <GlobalStyles />
-      <div style={{ 
-        minHeight: '100vh', 
-        background: 'linear-gradient(180deg, #0a0a0f 0%, #12122a 50%, #0a0a0f 100%)', 
-        fontFamily: 'Space Grotesk, system-ui', 
-        color: '#fff', 
-        display: 'flex', 
+      <RulesPopup />
+      <div style={{
+        minHeight: '100vh',
+        background: 'linear-gradient(180deg, #0a0a0f 0%, #12122a 50%, #0a0a0f 100%)',
+        fontFamily: 'Space Grotesk, system-ui',
+        color: '#fff',
+        display: 'flex',
         flexDirection: 'column'
       }}>
         {/* Header - compact on mobile */}
-        <div style={{ 
-          padding: '10px 12px', 
-          display: 'flex', 
-          justifyContent: 'space-between', 
+        <div style={{
+          padding: '10px 12px',
+          display: 'flex',
+          justifyContent: 'space-between',
           alignItems: 'center',
           background: 'rgba(0,0,0,0.3)',
           borderBottom: '1px solid rgba(255,255,255,0.05)',
@@ -972,6 +1057,7 @@ export default function App() {
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <h1 style={{ fontSize: 16, background: 'linear-gradient(135deg, #00ff88, #00d4ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', margin: 0, fontWeight: 700 }}>LE CHARTRAND</h1>
+            <RulesButton />
             {roomCode && <span style={{ fontSize: 12, color: '#888', background: 'rgba(139,92,246,0.2)', padding: '4px 8px', borderRadius: 4 }}>{roomName || roomCode}</span>}
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
