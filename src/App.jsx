@@ -418,6 +418,8 @@ export default function App() {
 
   const stateRef = useRef({})
   const unsubscribeRef = useRef(null)
+  const playerIdRef = useRef(playerId)
+  useEffect(() => { playerIdRef.current = playerId }, [playerId])
 
   useEffect(() => { stateRef.current = { players, deck, discard, melds, scores, currentPlayer, turnPhase, gamePhase, actionLog, message, roundNumber } }, [players, deck, discard, melds, scores, currentPlayer, turnPhase, gamePhase, actionLog, message, roundNumber])
 
@@ -485,6 +487,7 @@ export default function App() {
     unsubscribeRef.current = firebaseService.subscribeToRoom(code, (roomData) => {
       if (!roomData) { setMessage('Salon introuvable'); return }
       if (roomData.name) setRoomName(roomData.name)
+      if (roomData.host) setIsHost(roomData.host === playerIdRef.current)
       if (roomData.players) { const playerList = Object.values(roomData.players).filter(p => p.online !== false).sort((a, b) => (a.joinedAt || 0) - (b.joinedAt || 0)); if (roomData.status === 'lobby') setPlayers(playerList) }
       if (roomData.gameState) { const gs = roomData.gameState; if (gs.players) setPlayers(gs.players); if (gs.deck) setDeck(gs.deck); if (gs.discard) setDiscard(gs.discard); if (gs.melds) setMelds(gs.melds); if (gs.scores) setScores(gs.scores); if (typeof gs.currentPlayer === 'number') setCurrentPlayer(gs.currentPlayer); if (gs.turnPhase) setTurnPhase(gs.turnPhase); if (gs.gamePhase) setGamePhase(gs.gamePhase); if (gs.actionLog) setActionLog(gs.actionLog); if (gs.message) setMessage(gs.message); if (gs.roundNumber) setRoundNumber(gs.roundNumber) }
       if (roomData.status === 'playing' && stateRef.current.gamePhase === 'lobby') setGamePhase('playing')
