@@ -549,16 +549,6 @@ export default function App() {
     setNameInput('')
   }
 
-  // Subscribe to room when roomCode changes, clean up on leave/unmount
-  useEffect(() => {
-    if (!roomCode) return
-    subscribeToRoom(roomCode)
-    return () => {
-      if (unsubscribeRef.current) { unsubscribeRef.current(); unsubscribeRef.current = null }
-      if (playerIdRef.current) firebaseService.leaveRoom(roomCode, playerIdRef.current)
-    }
-  }, [roomCode, subscribeToRoom])
-
   // Subscribe to available rooms when on menu
   const roomsUnsubRef = useRef(null)
   useEffect(() => {
@@ -601,6 +591,16 @@ export default function App() {
       if (roomData.status === 'playing' && stateRef.current.gamePhase === 'lobby') setGamePhase('playing')
     })
   }, [])
+
+  // Subscribe to room when roomCode changes, clean up on leave/unmount
+  useEffect(() => {
+    if (!roomCode) return
+    subscribeToRoom(roomCode)
+    return () => {
+      if (unsubscribeRef.current) { unsubscribeRef.current(); unsubscribeRef.current = null }
+      if (playerIdRef.current) firebaseService.leaveRoom(roomCode, playerIdRef.current)
+    }
+  }, [roomCode, subscribeToRoom])
 
   const syncToFirebase = useCallback(async (newState) => { if (gameMode !== 'online' || !roomCode) return; await firebaseService.updateGameState(roomCode, { ...stateRef.current, ...newState }) }, [gameMode, roomCode])
 
