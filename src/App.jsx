@@ -144,6 +144,97 @@ const canAddToMeld = (meldCards, card, allMelds = [], meldIdx = -1) => {
 }
 const generateRoomCode = () => String(Math.floor(Math.random() * 900) + 100) // 100-999
 
+// ============ AI HELPERS ============
+const findBestMelds = (hand) => {
+  const candidates = []
+  const nonFrimes = hand.filter(c => !c.isFrime)
+  const frimes = hand.filter(c => c.isFrime)
+
+  // SETS: group by value, 3+ cards
+  const byValue = {}
+  nonFrimes.forEach(c => { if (!byValue[c.value]) byValue[c.value] = []; byValue[c.value].push(c) })
+  for (const cards of Object.values(byValue)) {
+    if (cards.length >= 3) candidates.push([...cards])
+  }
+
+  // RUNS: same suit, consecutive values
+  const bySuit = {}
+  nonFrimes.forEach(c => { if (!bySuit[c.suit]) bySuit[c.suit] = []; bySuit[c.suit].push(c) })
+  for (const suitCards of Object.values(bySuit)) {
+    const seen = new Set()
+    const sorted = [...suitCards]
+      .sort((a, b) => getValueIndex(a.value) - getValueIndex(b.value))
+      .filter(c => { const idx = getValueIndex(c.value); if (seen.has(idx)) return false; seen.add(idx); return true })
+    let run = [sorted[0]]
+    for (let i = 1; i < sorted.length; i++) {
+      if (getValueIndex(sorted[i].value) - getValueIndex(run[run.length - 1].value) === 1) {
+        run.push(sorted[i])
+      } else {
+        if (run.length >= 3) candidates.push([...run])
+        run = [sorted[i]]
+      }
+    }
+    if (run.length >= 3) candidates.push([...run])
+  }
+
+  // Greedy non-overlapping selection by points
+  candidates.sort((a, b) => b.reduce((s, c) => s + getCardPoints(c), 0) - a.reduce((s, c) => s + getCardPoints(c), 0))
+  const result = []
+  const used = new Set()
+  for (const meld of candidates) {
+    if (meld.every(c => !used.has(c.id))) {
+      result.push(meld)
+      meld.forEach(c => used.add(c.id))
+    }
+  }
+
+  // PAIRS + FRIME from remaining cards
+  for (const cards of Object.values(byValue)) {
+    const avail = cards.filter(c => !used.has(c.id))
+    if (avail.length >= 2) {
+      const frime = frimes.find(f => !used.has(f.id))
+      if (frime) {
+        result.push([avail[0], avail[1], frime])
+        used.add(avail[0].id); used.add(avail[1].id); used.add(frime.id)
+      }
+    }
+  }
+
+  // PARTIAL RUNS + FRIME from remaining cards
+  for (const suitCards of Object.values(bySuit)) {
+    const sorted = suitCards.filter(c => !used.has(c.id)).sort((a, b) => getValueIndex(a.value) - getValueIndex(b.value))
+    for (let i = 0; i < sorted.length - 1; i++) {
+      if (used.has(sorted[i].id) || used.has(sorted[i + 1].id)) continue
+      const gap = getValueIndex(sorted[i + 1].value) - getValueIndex(sorted[i].value)
+      if (gap <= 2) {
+        const frime = frimes.find(f => !used.has(f.id))
+        if (frime) {
+          const candidate = [sorted[i], sorted[i + 1], frime]
+          if (isValidMeld(candidate)) {
+            result.push(candidate)
+            used.add(sorted[i].id); used.add(sorted[i + 1].id); used.add(frime.id)
+          }
+        }
+      }
+    }
+  }
+
+  return result
+}
+
+const getCardUsefulness = (card, hand) => {
+  if (card.isFrime) return 100
+  const others = hand.filter(c => c.id !== card.id && !c.isFrime)
+  let score = 0
+  score += others.filter(c => c.value === card.value).length * 30
+  for (const c of others.filter(c => c.suit === card.suit)) {
+    const diff = Math.abs(getValueIndex(c.value) - getValueIndex(card.value))
+    if (diff === 1) score += 25
+    else if (diff === 2) score += 10
+  }
+  return score
+}
+
 // ============ CARD COMPONENTS ============
 const Card = ({ card, selected, onClick, faceDown, small, mini, disabled, style, animClass, delay = 0 }) => {
   const isRed = card?.suit === '♥' || card?.suit === '♦' || card?.suit === 'R'
@@ -321,6 +412,9 @@ export default function App() {
   const [lastAction, setLastAction] = useState(null)
   const [nameInput, setNameInput] = useState('')
   const [lastDrawnCardId, setLastDrawnCardId] = useState(null)
+  const [roomName, setRoomName] = useState('')
+  const [roomNameInput, setRoomNameInput] = useState('')
+  const [availableRooms, setAvailableRooms] = useState([])
 
   const stateRef = useRef({})
   const unsubscribeRef = useRef(null)
@@ -375,10 +469,22 @@ export default function App() {
 
   useEffect(() => { return () => { if (unsubscribeRef.current) unsubscribeRef.current(); if (roomCode && playerId) firebaseService.leaveRoom(roomCode, playerId) } }, [roomCode, playerId])
 
+  // Subscribe to available rooms when on menu
+  const roomsUnsubRef = useRef(null)
+  useEffect(() => {
+    if (gamePhase !== 'menu' || !isLoggedIn || !firebaseAvailable) {
+      if (roomsUnsubRef.current) { roomsUnsubRef.current(); roomsUnsubRef.current = null }
+      return
+    }
+    roomsUnsubRef.current = firebaseService.subscribeToAllRooms((rooms) => setAvailableRooms(rooms))
+    return () => { if (roomsUnsubRef.current) { roomsUnsubRef.current(); roomsUnsubRef.current = null } }
+  }, [gamePhase, isLoggedIn, firebaseAvailable])
+
   const subscribeToRoom = useCallback((code) => {
     if (unsubscribeRef.current) unsubscribeRef.current()
     unsubscribeRef.current = firebaseService.subscribeToRoom(code, (roomData) => {
       if (!roomData) { setMessage('Salon introuvable'); return }
+      if (roomData.name) setRoomName(roomData.name)
       if (roomData.players) { const playerList = Object.values(roomData.players).filter(p => p.online !== false).sort((a, b) => (a.joinedAt || 0) - (b.joinedAt || 0)); if (roomData.status === 'lobby') setPlayers(playerList) }
       if (roomData.gameState) { const gs = roomData.gameState; if (gs.players) setPlayers(gs.players); if (gs.deck) setDeck(gs.deck); if (gs.discard) setDiscard(gs.discard); if (gs.melds) setMelds(gs.melds); if (gs.scores) setScores(gs.scores); if (typeof gs.currentPlayer === 'number') setCurrentPlayer(gs.currentPlayer); if (gs.turnPhase) setTurnPhase(gs.turnPhase); if (gs.gamePhase) setGamePhase(gs.gamePhase); if (gs.actionLog) setActionLog(gs.actionLog); if (gs.message) setMessage(gs.message); if (gs.roundNumber) setRoundNumber(gs.roundNumber) }
       if (roomData.status === 'playing' && stateRef.current.gamePhase === 'lobby') setGamePhase('playing')
@@ -387,13 +493,15 @@ export default function App() {
 
   const syncToFirebase = useCallback(async (newState) => { if (gameMode !== 'online' || !roomCode) return; await firebaseService.updateGameState(roomCode, { ...stateRef.current, ...newState }) }, [gameMode, roomCode])
 
-  const createRoom = async () => { const code = generateRoomCode(); const hostPlayer = { id: playerId, name: playerName || 'Hôte', isHost: true }; if (await firebaseService.createRoom(code, hostPlayer)) { setRoomCode(code); setGameMode('online'); setIsHost(true); setPlayers([hostPlayer]); setScores([0]); setGamePhase('lobby'); subscribeToRoom(code) } else setMessage('Erreur création') }
+  const createRoom = async () => { const code = generateRoomCode(); const name = roomNameInput.trim() || `Partie de ${playerName}`; const hostPlayer = { id: playerId, name: playerName || 'Hôte', isHost: true }; if (await firebaseService.createRoom(code, hostPlayer, name)) { setRoomCode(code); setRoomName(name); setGameMode('online'); setIsHost(true); setPlayers([hostPlayer]); setScores([0]); setGamePhase('lobby'); subscribeToRoom(code) } else setMessage('Erreur création') }
 
   const joinRoom = async () => { if (!joinCode || joinCode.length !== 3) return; const code = joinCode; if (!await firebaseService.checkRoomExists(code)) { setMessage('Salon introuvable'); return }; const player = { id: playerId, name: playerName || 'Joueur', isHost: false }; const result = await firebaseService.joinRoom(code, player); if (result.success) { setRoomCode(code); setGameMode('online'); setIsHost(false); setGamePhase('lobby'); subscribeToRoom(code) } else setMessage('Erreur: ' + result.error) }
 
-  const startSoloGame = () => { setGameMode('solo'); const numDecks = numPlayers === 4 ? 2 : 1; const newDeck = createDeck(numDecks, Date.now()); const newPlayers = []; for (let i = 0; i < numPlayers; i++) newPlayers.push({ id: i === 0 ? playerId : `ai_${i}`, name: i === 0 ? (playerName || 'Toi') : `Ordi ${i}`, hand: newDeck.splice(0, 9), isHuman: i === 0, isAI: i !== 0 }); setPlayers(newPlayers); setDeck(newDeck); setDiscard(newDeck.splice(0, 1)); setMelds([]); setCurrentPlayer(0); setTurnPhase('draw'); setSelectedCards([]); setGamePhase('playing'); setMessage('Ton tour - Pioche'); setActionLog([]); setScores(new Array(numPlayers).fill(0)) }
+  const joinRoomDirect = async (code) => { const player = { id: playerId, name: playerName || 'Joueur', isHost: false }; const result = await firebaseService.joinRoom(code, player); if (result.success) { setRoomCode(code); setGameMode('online'); setIsHost(false); setGamePhase('lobby'); subscribeToRoom(code) } else setMessage('Erreur: ' + result.error) }
 
-  const startMultiplayerGame = async () => { if (players.length < 2 || !isHost) return; const numDecks = players.length === 4 ? 2 : 1; const newDeck = createDeck(numDecks, Date.now()); const newPlayers = players.map(p => ({ ...p, hand: newDeck.splice(0, 9) })); const topCard = newDeck.splice(0, 1); const newScores = new Array(players.length).fill(0); const msg = `Tour de ${newPlayers[0].name}`; setPlayers(newPlayers); setDeck(newDeck); setDiscard(topCard); setMelds([]); setCurrentPlayer(0); setTurnPhase('draw'); setSelectedCards([]); setGamePhase('playing'); setScores(newScores); setActionLog([]); setRoundNumber(1); setMessage(msg); await firebaseService.updateRoomStatus(roomCode, 'playing'); await firebaseService.updateGameState(roomCode, { players: newPlayers, deck: newDeck, discard: topCard, melds: [], scores: newScores, currentPlayer: 0, turnPhase: 'draw', gamePhase: 'playing', actionLog: [], message: msg, roundNumber: 1 }) }
+  const startSoloGame = (resetScores = true) => { setGameMode('solo'); const numDecks = numPlayers === 4 ? 2 : 1; const newDeck = createDeck(numDecks, Date.now()); const newPlayers = []; for (let i = 0; i < numPlayers; i++) newPlayers.push({ id: i === 0 ? playerId : `ai_${i}`, name: i === 0 ? (playerName || 'Toi') : `Ordi ${i}`, hand: newDeck.splice(0, 9), isHuman: i === 0, isAI: i !== 0 }); setPlayers(newPlayers); setDeck(newDeck); setDiscard(newDeck.splice(0, 1)); setMelds([]); setCurrentPlayer(0); setTurnPhase('draw'); setSelectedCards([]); setGamePhase('playing'); setMessage('Ton tour - Pioche'); setActionLog([]); if (resetScores) { setScores(new Array(numPlayers).fill(0)); setRoundNumber(1) } else { setRoundNumber(r => r + 1) } }
+
+  const startMultiplayerGame = async (resetScores = true) => { if (players.length < 2 || !isHost) return; const numDecks = players.length === 4 ? 2 : 1; const newDeck = createDeck(numDecks, Date.now()); const newPlayers = players.map(p => ({ ...p, hand: newDeck.splice(0, 9) })); const topCard = newDeck.splice(0, 1); const newScores = resetScores ? new Array(players.length).fill(0) : [...scores]; const newRound = resetScores ? 1 : roundNumber + 1; const msg = `Tour de ${newPlayers[0].name}`; setPlayers(newPlayers); setDeck(newDeck); setDiscard(topCard); setMelds([]); setCurrentPlayer(0); setTurnPhase('draw'); setSelectedCards([]); setGamePhase('playing'); setScores(newScores); setActionLog([]); setRoundNumber(newRound); setMessage(msg); await firebaseService.updateRoomStatus(roomCode, 'playing'); await firebaseService.updateGameState(roomCode, { players: newPlayers, deck: newDeck, discard: topCard, melds: [], scores: newScores, currentPlayer: 0, turnPhase: 'draw', gamePhase: 'playing', actionLog: [], message: msg, roundNumber: newRound }) }
 
   const myPlayerIndex = players.findIndex(p => p.id === playerId)
   const isMyTurn = currentPlayer === myPlayerIndex
@@ -443,82 +551,120 @@ export default function App() {
 
   const endRound = async (finalPlayers, finalMelds, newLog) => { const newScores = [...scores]; finalPlayers.forEach((p, i) => { const mPts = finalMelds.filter(m => m.owner === i).reduce((s, m) => s + m.cards.reduce((ss, c) => ss + getCardPoints(c), 0), 0); newScores[i] += mPts - p.hand.reduce((s, c) => s + getCardPoints(c), 0) }); setScores(newScores); const newPhase = newScores.some(s => s >= 500) ? 'gameEnd' : 'roundEnd'; setGamePhase(newPhase); if (gameMode === 'online') await syncToFirebase({ scores: newScores, gamePhase: newPhase, actionLog: newLog }) }
 
-  // AI turn with 3s delays between actions
+  // AI turn with smarter strategy
   useEffect(() => {
     if (gamePhase !== 'playing' || gameMode !== 'solo' || !players[currentPlayer]?.isAI) return
-    
-    const aiPlayer = players[currentPlayer]
-    const pName = aiPlayer.name
+
+    const pName = players[currentPlayer].name
     let cancelled = false
-    
+
     const runAI = async () => {
       const delay = (ms) => new Promise(r => setTimeout(r, ms))
-      
-      // Step 1: Draw
-      setMessage(`${pName} pioche...`)
-      await delay(2000)
+
+      setMessage(`${pName} réfléchit...`)
+      await delay(1500)
       if (cancelled) return
-      
+
       const st = stateRef.current
       let newPlayers = JSON.parse(JSON.stringify(st.players))
       let newDeck = [...st.deck]
       let newDiscard = [...st.discard]
       let newMelds = JSON.parse(JSON.stringify(st.melds))
-      
-      if (newDeck.length > 0) {
-        newPlayers[currentPlayer].hand.push(newDeck.pop())
-        setDeck(newDeck)
-        setPlayers(newPlayers)
-        setActionLog(prev => [...prev, { player: pName, action: 'pioche', icon: '+' }])
-      }
-      
-      // Step 2: Try to meld
-      await delay(2000)
-      if (cancelled) return
-      
-      let found = true, iter = 0
-      while (found && iter < 5) {
-        found = false; iter++
-        const hand = newPlayers[currentPlayer].hand
-        for (let i = 0; i < hand.length && !found; i++) {
-          for (let j = i + 1; j < hand.length && !found; j++) {
-            for (let k = j + 1; k < hand.length && !found; k++) {
-              const tryM = [hand[i], hand[j], hand[k]]
-              if (isValidMeld(tryM)) {
-                setMessage(`${pName} pose une combinaison!`)
-                newMelds.push({ owner: currentPlayer, cards: tryM })
-                newPlayers[currentPlayer].hand = hand.filter(c => !tryM.some(m => m.id === c.id))
-                setMelds(newMelds)
-                setPlayers(newPlayers)
-                setActionLog(prev => [...prev, { player: pName, action: 'pose', icon: '*' }])
-                found = true
-                await delay(2000)
-                if (cancelled) return
-              }
-            }
-          }
+
+      // DRAW: check if top discard card helps form a meld
+      let drewFromDiscard = false
+      if (newDiscard.length > 0) {
+        const topCard = newDiscard[newDiscard.length - 1]
+        const handWith = [...newPlayers[currentPlayer].hand, topCard]
+        const meldsWith = findBestMelds(handWith)
+        const meldsWithout = findBestMelds(newPlayers[currentPlayer].hand)
+        if (meldsWith.length > meldsWithout.length ||
+            (meldsWith.length === meldsWithout.length && meldsWith.length > 0 &&
+             meldsWith.reduce((s, m) => s + m.reduce((ss, c) => ss + getCardPoints(c), 0), 0) >
+             meldsWithout.reduce((s, m) => s + m.reduce((ss, c) => ss + getCardPoints(c), 0), 0))) {
+          newDiscard.pop()
+          newPlayers[currentPlayer].hand.push(topCard)
+          setDiscard(newDiscard)
+          setPlayers(JSON.parse(JSON.stringify(newPlayers)))
+          setActionLog(prev => [...prev, { player: pName, action: topCard.value + topCard.suit, icon: '+' }])
+          setMessage(`${pName} prend ${topCard.value}${topCard.suit} de la défausse!`)
+          drewFromDiscard = true
         }
       }
-      
-      // Step 3: Discard
+      if (!drewFromDiscard && newDeck.length > 0) {
+        newPlayers[currentPlayer].hand.push(newDeck.pop())
+        setDeck(newDeck)
+        setPlayers(JSON.parse(JSON.stringify(newPlayers)))
+        setActionLog(prev => [...prev, { player: pName, action: 'pioche', icon: '+' }])
+        setMessage(`${pName} pioche...`)
+      }
+
+      await delay(1500)
+      if (cancelled) return
+
+      // MELD: find and play all valid melds (sets, runs, with frimes)
+      const bestMelds = findBestMelds(newPlayers[currentPlayer].hand)
+      for (const meld of bestMelds) {
+        newMelds.push({ owner: currentPlayer, cards: meld })
+        newPlayers[currentPlayer].hand = newPlayers[currentPlayer].hand.filter(c => !meld.some(m => m.id === c.id))
+        setMelds(JSON.parse(JSON.stringify(newMelds)))
+        setPlayers(JSON.parse(JSON.stringify(newPlayers)))
+        setActionLog(prev => [...prev, { player: pName, action: 'pose', icon: '*' }])
+        setMessage(`${pName} pose une combinaison!`)
+        await delay(1500)
+        if (cancelled) return
+      }
+
+      // ADD TO EXISTING MELDS on the table
+      let addedCard = true
+      while (addedCard) {
+        addedCard = false
+        for (let mi = 0; mi < newMelds.length; mi++) {
+          for (let ci = newPlayers[currentPlayer].hand.length - 1; ci >= 0; ci--) {
+            const card = newPlayers[currentPlayer].hand[ci]
+            if (canAddToMeld(newMelds[mi].cards, card, newMelds, mi)) {
+              if (newMelds[mi].owner === currentPlayer) {
+                newMelds[mi] = { ...newMelds[mi], cards: [...newMelds[mi].cards, card] }
+              } else {
+                newMelds.push({ owner: currentPlayer, cards: [card], linkedTo: mi })
+              }
+              newPlayers[currentPlayer].hand.splice(ci, 1)
+              setMelds(JSON.parse(JSON.stringify(newMelds)))
+              setPlayers(JSON.parse(JSON.stringify(newPlayers)))
+              setActionLog(prev => [...prev, { player: pName, action: '+' + card.value, icon: '+' }])
+              setMessage(`${pName} ajoute à une combinaison`)
+              addedCard = true
+              await delay(1200)
+              if (cancelled) return
+              break
+            }
+          }
+          if (addedCard) break
+        }
+      }
+
+      // DISCARD: pick least useful card (keep cards forming potential melds)
       if (newPlayers[currentPlayer].hand.length > 0) {
         setMessage(`${pName} défausse...`)
-        await delay(2000)
+        await delay(1200)
         if (cancelled) return
-        
-        const sorted = [...newPlayers[currentPlayer].hand].sort((a, b) => getCardPoints(b) - getCardPoints(a))
-        const disc = sorted[0]
-        newPlayers[currentPlayer].hand = newPlayers[currentPlayer].hand.filter(c => c.id !== disc.id)
+
+        const hand = newPlayers[currentPlayer].hand
+        const scored = hand.map(c => ({ card: c, usefulness: getCardUsefulness(c, hand), points: getCardPoints(c) }))
+        scored.sort((a, b) => a.usefulness !== b.usefulness ? a.usefulness - b.usefulness : b.points - a.points)
+        const disc = scored[0].card
+
+        newPlayers[currentPlayer].hand = hand.filter(c => c.id !== disc.id)
         newDiscard.push(disc)
         setDiscard(newDiscard)
-        setPlayers(newPlayers)
+        setPlayers(JSON.parse(JSON.stringify(newPlayers)))
         setActionLog(prev => [...prev, { player: pName, action: disc.value + disc.suit, icon: '-' }])
       }
-      
-      // End turn
-      await delay(1000)
+
+      // END TURN
+      await delay(800)
       if (cancelled) return
-      
+
       if (newPlayers[currentPlayer].hand.length === 0) {
         const st2 = stateRef.current
         const newScores = [...st2.scores]
@@ -535,7 +681,7 @@ export default function App() {
         setMessage(next === 0 ? 'Ton tour - Pioche' : `Tour de ${newPlayers[next].name}...`)
       }
     }
-    
+
     runAI()
     return () => { cancelled = true }
   }, [currentPlayer, gamePhase, gameMode, numPlayers])
@@ -654,12 +800,29 @@ export default function App() {
           
           <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 16, padding: 20, border: '1px solid rgba(255,255,255,0.08)' }}>
             <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 10 }}>
-              Multijoueur 
+              Multijoueur
               <span style={{ fontSize: 9, padding: '3px 8px', borderRadius: 6, background: 'rgba(0,255,136,0.15)', color: '#00ff88' }}>ONLINE</span>
             </div>
+            <input type="text" placeholder="Nom de la partie..." value={roomNameInput} onChange={(e) => setRoomNameInput(e.target.value.slice(0, 30))} style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.05)', color: '#fff', fontSize: 14, marginBottom: 10, outline: 'none' }} />
             <button onClick={createRoom} className="btn-primary" style={{ width: '100%', padding: '12px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg, #00ff88, #00d4ff)', color: '#000', fontSize: 14, fontWeight: 600, cursor: 'pointer', marginBottom: 10 }}>Créer une partie</button>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <input type="text" inputMode="numeric" pattern="[0-9]*" placeholder="123" value={joinCode} onChange={(e) => setJoinCode(e.target.value.replace(/\D/g, '').slice(0, 3))} style={{ flex: 1, padding: '10px 14px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.05)', color: '#fff', fontSize: 18, textAlign: 'center', letterSpacing: 6, fontWeight: 600, maxWidth: 100 }} />
+
+            {availableRooms.length > 0 && (
+              <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 12, marginTop: 4 }}>
+                <div style={{ fontSize: 11, color: '#888', marginBottom: 8, fontWeight: 500, textTransform: 'uppercase', letterSpacing: 1 }}>Parties disponibles</div>
+                {availableRooms.map(room => (
+                  <div key={room.code} onClick={() => joinRoomDirect(room.code)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', background: 'rgba(0,255,136,0.05)', borderRadius: 8, marginBottom: 6, cursor: 'pointer', border: '1px solid rgba(0,255,136,0.15)', transition: 'all 0.2s ease' }} className="btn-primary">
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 500, color: '#fff' }}>{room.name}</div>
+                      <div style={{ fontSize: 11, color: '#888' }}>{room.playerCount}/4 joueurs</div>
+                    </div>
+                    <span style={{ padding: '5px 12px', borderRadius: 6, background: '#00ff88', color: '#000', fontSize: 11, fontWeight: 600 }}>Rejoindre</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: 8, marginTop: availableRooms.length > 0 ? 10 : 0 }}>
+              <input type="text" inputMode="numeric" pattern="[0-9]*" placeholder="Code" value={joinCode} onChange={(e) => setJoinCode(e.target.value.replace(/\D/g, '').slice(0, 3))} style={{ flex: 1, padding: '10px 14px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.05)', color: '#fff', fontSize: 18, textAlign: 'center', letterSpacing: 6, fontWeight: 600, maxWidth: 100 }} />
               <button onClick={joinRoom} disabled={joinCode.length !== 3} className="btn-primary" style={{ padding: '10px 18px', borderRadius: 8, border: 'none', background: joinCode.length === 3 ? '#00ff88' : 'rgba(255,255,255,0.08)', color: joinCode.length === 3 ? '#000' : '#555', fontWeight: 600, fontSize: 13, cursor: joinCode.length === 3 ? 'pointer' : 'not-allowed' }}>OK</button>
             </div>
           </div>
@@ -676,10 +839,11 @@ export default function App() {
     <>
       <GlobalStyles />
       <div style={{ height: '100vh', background: 'linear-gradient(135deg, #0a0a0f, #1a1a2e)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontFamily: 'Space Grotesk, system-ui', color: '#fff', padding: 20 }}>
-        <h2 style={{ fontSize: 24, marginBottom: 10, fontWeight: 600 }}>Salon de jeu</h2>
-        <div className="glow" style={{ background: 'rgba(139,92,246,0.15)', padding: '14px 28px', borderRadius: 12, marginBottom: 20, display: 'flex', alignItems: 'center', gap: 14, border: '1px solid rgba(139,92,246,0.3)' }}>
-          <span style={{ fontSize: 28, fontWeight: 'bold', letterSpacing: 4, color: '#00ff88' }}>{roomCode}</span>
-          <button onClick={copyRoomLink} className="btn-primary" style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: 'rgba(255,255,255,0.1)', color: '#fff', fontSize: 12, cursor: 'pointer' }}>Copier</button>
+        <h2 style={{ fontSize: 22, marginBottom: 6, fontWeight: 600, color: '#00ff88' }}>{roomName || 'Salon de jeu'}</h2>
+        <div className="glow" style={{ background: 'rgba(139,92,246,0.15)', padding: '10px 20px', borderRadius: 12, marginBottom: 20, display: 'flex', alignItems: 'center', gap: 14, border: '1px solid rgba(139,92,246,0.3)' }}>
+          <span style={{ fontSize: 12, color: '#888' }}>Code :</span>
+          <span style={{ fontSize: 22, fontWeight: 'bold', letterSpacing: 4, color: '#fff' }}>{roomCode}</span>
+          <button onClick={copyRoomLink} className="btn-primary" style={{ padding: '6px 12px', borderRadius: 8, border: 'none', background: 'rgba(255,255,255,0.1)', color: '#fff', fontSize: 11, cursor: 'pointer' }}>Copier le lien</button>
         </div>
         {message && <div style={{ color: '#00ff88', marginBottom: 12, fontSize: 12 }}>{message}</div>}
         <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 12, padding: 20, marginBottom: 20, minWidth: 260, border: '1px solid rgba(255,255,255,0.08)' }}>
@@ -720,7 +884,7 @@ export default function App() {
             ))}
           </div>
           <button 
-            onClick={async () => { if (gamePhase === 'gameEnd') { if (gameMode === 'online' && roomCode) await firebaseService.deleteRoom(roomCode); setScores([]); setRoundNumber(1); setGamePhase('menu'); setRoomCode('') } else { setRoundNumber(r => r + 1); if (gameMode === 'solo') startSoloGame(); else if (isHost) startMultiplayerGame() } }} 
+            onClick={async () => { if (gamePhase === 'gameEnd') { if (gameMode === 'online' && roomCode) await firebaseService.deleteRoom(roomCode); setScores([]); setRoundNumber(1); setGamePhase('menu'); setRoomCode('') } else { if (gameMode === 'solo') startSoloGame(false); else if (isHost) startMultiplayerGame(false) } }} 
             className="btn-primary"
             style={{ padding: '14px 32px', borderRadius: 12, border: 'none', background: gamePhase === 'gameEnd' ? 'linear-gradient(135deg, #00ff88, #00d4ff)' : 'linear-gradient(135deg, #8b5cf6, #6366f1)', color: gamePhase === 'gameEnd' ? '#000' : '#fff', fontSize: 15, fontWeight: 600, cursor: 'pointer' }}
           >
@@ -768,7 +932,7 @@ export default function App() {
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <h1 style={{ fontSize: 16, background: 'linear-gradient(135deg, #00ff88, #00d4ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', margin: 0, fontWeight: 700 }}>LE CHARTRAND</h1>
-            {roomCode && <span style={{ fontSize: 12, color: '#888', background: 'rgba(139,92,246,0.2)', padding: '4px 8px', borderRadius: 4 }}>{roomCode}</span>}
+            {roomCode && <span style={{ fontSize: 12, color: '#888', background: 'rgba(139,92,246,0.2)', padding: '4px 8px', borderRadius: 4 }}>{roomName || roomCode}</span>}
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             {players.map((p, i) => (

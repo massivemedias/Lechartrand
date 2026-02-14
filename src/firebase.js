@@ -111,13 +111,14 @@ const getPlayersRef = (roomCode) => ref(db, `rooms/${roomCode}/players`);
 const getGameStateRef = (roomCode) => ref(db, `rooms/${roomCode}/gameState`);
 
 // Create a new room
-export const createRoom = async (roomCode, hostPlayer) => {
+export const createRoom = async (roomCode, hostPlayer, roomName = '') => {
   if (!db) return false;
-  
+
   try {
     await set(getRoomRef(roomCode), {
       createdAt: serverTimestamp(),
       host: hostPlayer.id,
+      name: roomName || `Salon ${roomCode}`,
       status: 'lobby',
       players: {
         [hostPlayer.id]: {
@@ -288,6 +289,37 @@ export const setPlayerOnline = async (roomCode, playerId, online = true) => {
   } catch (error) {
     console.error('Error updating online status:', error);
   }
+};
+
+// Subscribe to all available rooms (lobby browser)
+export const subscribeToAllRooms = (callback) => {
+  if (!db) {
+    callback([]);
+    return () => {};
+  }
+
+  const roomsRef = ref(db, 'rooms');
+  const unsubscribe = onValue(roomsRef, (snapshot) => {
+    const data = snapshot.val();
+    if (!data) {
+      callback([]);
+      return;
+    }
+    const rooms = Object.entries(data)
+      .filter(([, room]) => room.status === 'lobby')
+      .map(([code, room]) => ({
+        code,
+        name: room.name || `Salon ${code}`,
+        playerCount: room.players ? Object.values(room.players).filter(p => p.online !== false).length : 0,
+        createdAt: room.createdAt
+      }));
+    callback(rooms);
+  }, (error) => {
+    console.error('Error subscribing to rooms:', error);
+    callback([]);
+  });
+
+  return unsubscribe;
 };
 
 // Check if Firebase is available
