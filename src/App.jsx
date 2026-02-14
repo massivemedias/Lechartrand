@@ -324,10 +324,11 @@ const Card = ({ card, selected, onClick, faceDown, small, mini, disabled, style,
           }}>
             {card.value}
           </div>
-          <div style={{ 
-            fontSize: sizes.corner - 2, 
+          <div style={{
+            fontSize: sizes.corner + 2,
             color: isFrime ? '#a78bfa' : (isRed ? '#dc2626' : '#333'),
-            marginTop: 1
+            marginTop: -1,
+            lineHeight: 1
           }}>
             {card.suit}
           </div>
