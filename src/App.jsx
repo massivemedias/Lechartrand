@@ -855,7 +855,8 @@ export default function App() {
               {p.id === playerId && <span style={{ fontSize: 10, color: '#666' }}>(toi)</span>}
             </div>
           ))}
-          {players.length < 4 && <div className="pulse" style={{ padding: '10px 0', color: '#444', fontSize: 13 }}>En attente de joueurs...</div>}
+          {players.length < 2 && <div className="pulse" style={{ padding: '10px 0', color: '#444', fontSize: 13 }}>En attente de joueurs...</div>}
+          {players.length >= 2 && players.length < 4 && <div style={{ padding: '10px 0', color: '#00ff88', fontSize: 13 }}>Prêt à jouer!</div>}
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
           <button onClick={() => { setGamePhase('menu'); setRoomCode(''); firebaseService.leaveRoom(roomCode, playerId) }} className="btn-primary" style={{ padding: '12px 20px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.15)', background: 'transparent', color: '#888', fontSize: 13, cursor: 'pointer' }}>Quitter</button>
