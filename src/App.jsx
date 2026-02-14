@@ -419,7 +419,7 @@ export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [lastAction, setLastAction] = useState(null)
   const [nameInput, setNameInput] = useState('')
-  const [lastDrawnCardId, setLastDrawnCardId] = useState(null)
+  const [drawnCardIds, setDrawnCardIds] = useState([])
   const [roomName, setRoomName] = useState('')
   const [roomNameInput, setRoomNameInput] = useState('')
   const [availableRooms, setAvailableRooms] = useState([])
@@ -548,13 +548,13 @@ export default function App() {
   const drawFromDeck = async () => { 
     if (turnPhase !== 'draw' || !isMyTurn) return
     setLastAction('draw')
-    const newDeck = [...deck]; const card = newDeck.pop(); setLastDrawnCardId(card.id); const newPlayers = [...players]; newPlayers[myPlayerIndex] = { ...newPlayers[myPlayerIndex], hand: [...newPlayers[myPlayerIndex].hand, card] }; const newLog = [...actionLog, { player: players[myPlayerIndex].name, action: 'pioche', icon: '+' }]; setDeck(newDeck); setPlayers(newPlayers); setTurnPhase('play'); setActionLog(newLog); setMessage('Pose ou défausse'); if (gameMode === 'online') await syncToFirebase({ deck: newDeck, players: newPlayers, turnPhase: 'play', actionLog: newLog, message: 'Pose ou défausse' }) 
+    const newDeck = [...deck]; const card = newDeck.pop(); setDrawnCardIds([card.id]); const newPlayers = [...players]; newPlayers[myPlayerIndex] = { ...newPlayers[myPlayerIndex], hand: [...newPlayers[myPlayerIndex].hand, card] }; const newLog = [...actionLog, { player: players[myPlayerIndex].name, action: 'pioche', icon: '+' }]; setDeck(newDeck); setPlayers(newPlayers); setTurnPhase('play'); setActionLog(newLog); setMessage('Pose ou défausse'); if (gameMode === 'online') await syncToFirebase({ deck: newDeck, players: newPlayers, turnPhase: 'play', actionLog: newLog, message: 'Pose ou défausse' }) 
   }
 
   const drawFromDiscard = async (idx) => { 
     if (turnPhase !== 'draw' || !isMyTurn) return
     setLastAction('drawDiscard')
-    const cardsToTake = discard.slice(idx); setLastDrawnCardId(cardsToTake[0]?.id); const remaining = discard.slice(0, idx); const newPlayers = [...players]; newPlayers[myPlayerIndex] = { ...newPlayers[myPlayerIndex], hand: [...newPlayers[myPlayerIndex].hand, ...cardsToTake] }; const newLog = [...actionLog, { player: players[myPlayerIndex].name, action: cardsToTake.length > 1 ? `+${cardsToTake.length}` : cardsToTake[0].value + cardsToTake[0].suit, icon: '+' }]; setDiscard(remaining); setPlayers(newPlayers); setTurnPhase('play'); setActionLog(newLog); setMessage('Pose ou défausse'); if (gameMode === 'online') await syncToFirebase({ discard: remaining, players: newPlayers, turnPhase: 'play', actionLog: newLog }) 
+    const cardsToTake = discard.slice(idx); setDrawnCardIds(cardsToTake.map(c => c.id)); const remaining = discard.slice(0, idx); const newPlayers = [...players]; newPlayers[myPlayerIndex] = { ...newPlayers[myPlayerIndex], hand: [...newPlayers[myPlayerIndex].hand, ...cardsToTake] }; const newLog = [...actionLog, { player: players[myPlayerIndex].name, action: cardsToTake.length > 1 ? `+${cardsToTake.length}` : cardsToTake[0].value + cardsToTake[0].suit, icon: '+' }]; setDiscard(remaining); setPlayers(newPlayers); setTurnPhase('play'); setActionLog(newLog); setMessage('Pose ou défausse'); if (gameMode === 'online') await syncToFirebase({ discard: remaining, players: newPlayers, turnPhase: 'play', actionLog: newLog }) 
   }
 
   const toggleCard = (card) => { if (!isMyTurn || turnPhase !== 'play') return; setSelectedCards(prev => prev.some(c => c.id === card.id) ? prev.filter(c => c.id !== card.id) : [...prev, card]) }
@@ -584,7 +584,7 @@ export default function App() {
 
   const discardCard = async () => { 
     if (selectedCards.length !== 1) return; const card = selectedCards[0]
-    setLastAction('discard'); setLastDrawnCardId(null)
+    setLastAction('discard'); setDrawnCardIds([])
     const newPlayers = [...players]; newPlayers[myPlayerIndex] = { ...newPlayers[myPlayerIndex], hand: newPlayers[myPlayerIndex].hand.filter(c => c.id !== card.id) }; const newDiscard = [...discard, card]; const newLog = [...actionLog, { player: players[myPlayerIndex].name, action: card.value + card.suit, icon: '-' }]; setPlayers(newPlayers); setDiscard(newDiscard); setSelectedCards([]); setActionLog(newLog); if (newPlayers[myPlayerIndex].hand.length === 0) await endRound(newPlayers, melds, newLog); else { const next = (currentPlayer + 1) % players.length; const msg = `Tour de ${newPlayers[next].name}`; setCurrentPlayer(next); setTurnPhase('draw'); setMessage(msg); if (gameMode === 'online') await syncToFirebase({ players: newPlayers, discard: newDiscard, currentPlayer: next, turnPhase: 'draw', actionLog: newLog, message: msg }) } 
   }
 
@@ -1160,7 +1160,7 @@ export default function App() {
             marginBottom: isMyTurn && turnPhase === 'play' ? 10 : 0
           }}>
             {sortedHand().map((card, i) => {
-              const isNewCard = card.id === lastDrawnCardId
+              const isNewCard = drawnCardIds.includes(card.id)
               return (
                 <Card 
                   key={card.id} 
