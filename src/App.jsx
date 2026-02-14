@@ -847,7 +847,7 @@ export default function App() {
         </div>
         {message && <div style={{ color: '#00ff88', marginBottom: 12, fontSize: 12 }}>{message}</div>}
         <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 12, padding: 20, marginBottom: 20, minWidth: 260, border: '1px solid rgba(255,255,255,0.08)' }}>
-          <div style={{ fontSize: 12, color: '#666', marginBottom: 12, fontWeight: 500 }}>Joueurs ({players.length}/4)</div>
+          <div style={{ fontSize: 12, color: '#666', marginBottom: 12, fontWeight: 500 }}>Joueurs ({players.length}) — min. 2</div>
           {players.map((p, i) => (
             <div key={p.id} className="slide-in" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.08)', animationDelay: `${i * 100}ms` }}>
               <span style={{ fontSize: 14, color: p.isHost ? '#00ff88' : '#666' }}>{p.isHost ? '★' : '•'}</span>
